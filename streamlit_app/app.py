@@ -10,7 +10,7 @@ WRITE_API_KEY = "89Q4XRJ8U1GJGYKF"
 # ----------------------------------------
 
 st.set_page_config(
-    page_title="ESP32 Temperature Monitor",
+    page_title="ESP32 Environment Monitor",
     page_icon="🌡️",
     layout="wide"
 )
@@ -21,6 +21,11 @@ def get_latest_temperature():
     r = requests.get(url, timeout=5).json()
     return float(r["field1"]), r["created_at"]
 
+def get_latest_humidity():
+    url = f"https://api.thingspeak.com/channels/{CHANNEL_ID}/fields/3/last.json?api_key={READ_API_KEY}"
+    r = requests.get(url, timeout=5).json()
+    return float(r["field3"])
+
 def get_threshold():
     url = f"https://api.thingspeak.com/channels/{CHANNEL_ID}/fields/2/last.txt?api_key={READ_API_KEY}"
     return float(requests.get(url, timeout=5).text)
@@ -29,7 +34,7 @@ def update_threshold(value):
     url = f"https://api.thingspeak.com/update?api_key={WRITE_API_KEY}&field2={value}"
     requests.get(url, timeout=5)
 
-def get_history():
+def get_temperature_history():
     url = f"https://api.thingspeak.com/channels/{CHANNEL_ID}/fields/1.json?api_key={READ_API_KEY}&results=40"
     feeds = requests.get(url, timeout=5).json()["feeds"]
     df = pd.DataFrame(feeds)
@@ -37,15 +42,25 @@ def get_history():
     df["field1"] = pd.to_numeric(df["field1"])
     return df
 
+def get_humidity_history():
+    url = f"https://api.thingspeak.com/channels/{CHANNEL_ID}/fields/3.json?api_key={READ_API_KEY}&results=40"
+    feeds = requests.get(url, timeout=5).json()["feeds"]
+    df = pd.DataFrame(feeds)
+    df["created_at"] = pd.to_datetime(df["created_at"])
+    df["field3"] = pd.to_numeric(df["field3"])
+    return df
+
 # ---------------- DATA ----------------
 try:
     temperature, last_raw = get_latest_temperature()
+    humidity = get_latest_humidity()
     threshold_cloud = get_threshold()
 
     last_update = datetime.fromisoformat(last_raw.replace("Z", "+00:00"))
     esp32_online = (datetime.now(timezone.utc) - last_update).seconds < 60
 except:
     temperature = 0
+    humidity = 0
     threshold_cloud = 30
     esp32_online = False
     last_update = None
@@ -69,7 +84,7 @@ st.markdown(
     <style>
     .stApp {{
         background: linear-gradient(135deg, {bg_color}, #0e1117);
-        transition: background 0.1s linear;
+        transition: background 0.15s linear;
     }}
 
     .card {{
@@ -84,8 +99,8 @@ st.markdown(
 )
 
 # ---------------- HEADER ----------------
-st.title("🌡️ ESP32 Temperature Dashboard")
-st.caption("Preview → Apply → ESP32 updates")
+st.title("🌡️ ESP32 Environment Dashboard")
+st.caption("Temperature • Humidity • Threshold control")
 
 st.divider()
 
@@ -98,8 +113,6 @@ new_threshold = st.slider(
     st.session_state.threshold_ui
 )
 
-st.markdown("")
-
 if st.button("✅ Apply Threshold", use_container_width=True):
     update_threshold(new_threshold)
     st.session_state.threshold_ui = new_threshold
@@ -107,8 +120,8 @@ if st.button("✅ Apply Threshold", use_container_width=True):
 
 st.divider()
 
-# ---------------- STATUS ----------------
-col1, col2, col3 = st.columns(3)
+# ---------------- STATUS CARDS ----------------
+col1, col2, col3, col4 = st.columns(4)
 
 with col1:
     st.markdown("<div class='card'>", unsafe_allow_html=True)
@@ -117,21 +130,22 @@ with col1:
 
 with col2:
     st.markdown("<div class='card'>", unsafe_allow_html=True)
-    st.metric("🎚️ Active Threshold", f"{threshold_cloud:.1f} °C")
+    st.metric("💧 Humidity", f"{humidity:.1f} %")
     st.markdown("</div>", unsafe_allow_html=True)
 
 with col3:
     st.markdown("<div class='card'>", unsafe_allow_html=True)
-    if esp32_online:
-        st.success("🟢 ESP32 ONLINE")
-    else:
-        st.error("🔴 ESP32 OFFLINE")
+    st.metric("🎚️ Active Threshold", f"{threshold_cloud:.1f} °C")
+    st.markdown("</div>", unsafe_allow_html=True)
 
+with col4:
+    st.markdown("<div class='card'>", unsafe_allow_html=True)
+    st.success("🟢 ESP32 ONLINE") if esp32_online else st.error("🔴 ESP32 OFFLINE")
     if last_update:
         st.caption(f"Last update: {last_update.strftime('%H:%M:%S UTC')}")
     st.markdown("</div>", unsafe_allow_html=True)
 
-# ---------------- STATE ----------------
+# ---------------- ALERT STATE ----------------
 st.divider()
 
 if temperature > threshold_cloud:
@@ -139,14 +153,27 @@ if temperature > threshold_cloud:
 else:
     st.success("✅ Temperature within safe range")
 
-# ---------------- CHART ----------------
-st.subheader("📈 Temperature History")
+# ---------------- CHARTS ----------------
+st.subheader("📈 Sensor History")
 
-try:
-    df = get_history()
-    st.line_chart(df.set_index("created_at")["field1"])
-except:
-    st.warning("Unable to load historical data")
+col_t, col_h = st.columns(2)
+
+with col_t:
+    st.caption("Temperature (°C)")
+    try:
+        df_t = get_temperature_history()
+        st.line_chart(df_t.set_index("created_at")["field1"])
+    except:
+        st.warning("Temperature history unavailable")
+
+with col_h:
+    st.caption("Humidity (%)")
+    try:
+        df_h = get_humidity_history()
+        st.line_chart(df_h.set_index("created_at")["field3"])
+    except:
+        st.warning("Humidity history unavailable")
+
 
 
 
