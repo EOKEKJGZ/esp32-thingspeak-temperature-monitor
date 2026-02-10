@@ -1,12 +1,13 @@
 import streamlit as st
+import streamlit.components.v1 as components
 import requests
 import pandas as pd
 
-# --------- USER CONFIG ----------
+# ---------------- CONFIG ----------------
 CHANNEL_ID = "3254015"
-READ_API_KEY = "https://api.thingspeak.com/channels/3254015/fields/1.json?api_key=79SP1MV4ASBVHNBY&results=2"
-WRITE_API_KEY = "https://api.thingspeak.com/update?api_key=89Q4XRJ8U1GJGYKF&field1=0"
-# --------------------------------
+READ_API_KEY = "79SP1MV4ASBVHNBY"
+WRITE_API_KEY = "89Q4XRJ8U1GJGYKF"
+# ----------------------------------------
 
 st.set_page_config(
     page_title="ESP32 IoT Temperature Dashboard",
@@ -14,29 +15,19 @@ st.set_page_config(
     layout="wide"
 )
 
-# --------- HELPER: TEMP → COLOR ----------
-def temperature_to_gradient(temp):
-    """
-    Maps 0–50°C to a vibrant blue → purple → red gradient
-    """
-    temp = max(0, min(50, temp))
-    ratio = temp / 50.0
+st.title("🌡️ ESP32 IoT Temperature Monitoring")
+st.caption("Live IoT dashboard • ThingSpeak • Streamlit")
 
-    # RGB interpolation
-    r = int(30 + (220 - 30) * ratio)
-    g = int(60 + (20 - 60) * ratio)
-    b = int(180 + (60 - 180) * ratio)
-
-    return f"rgb({r},{g},{b})"
-
-# --------- API FUNCTIONS ----------
+# ---------------- API FUNCTIONS ----------------
 def get_latest_temperature():
     url = f"https://api.thingspeak.com/channels/{CHANNEL_ID}/fields/1/last.json?api_key={READ_API_KEY}"
-    return float(requests.get(url, timeout=5).json()["field1"])
+    r = requests.get(url, timeout=5)
+    return float(r.json()["field1"])
 
 def get_current_threshold():
     url = f"https://api.thingspeak.com/channels/{CHANNEL_ID}/fields/2/last.txt?api_key={READ_API_KEY}"
-    return float(requests.get(url, timeout=5).text)
+    r = requests.get(url, timeout=5)
+    return float(r.text)
 
 def update_threshold(value):
     url = f"https://api.thingspeak.com/update?api_key={WRITE_API_KEY}&field2={value}"
@@ -50,13 +41,7 @@ def get_temperature_history():
     df["field1"] = pd.to_numeric(df["field1"])
     return df
 
-# --------- AUTO REFRESH ----------
-from streamlit_autorefresh import st_autorefresh
-
-st_autorefresh(interval=20000, key="refresh")
-
-
-# --------- READ CLOUD VALUES ----------
+# ---------------- READ CLOUD DATA ----------------
 try:
     temperature = get_latest_temperature()
     threshold_cloud = get_current_threshold()
@@ -64,45 +49,106 @@ except:
     temperature = 0
     threshold_cloud = 30
 
-# --------- DYNAMIC BACKGROUND ----------
-bg_color = temperature_to_gradient(threshold_cloud)
+# ---------------- SESSION STATE ----------------
+if "ui_threshold" not in st.session_state:
+    st.session_state.ui_threshold = int(threshold_cloud)
 
-st.markdown(
+# ---------------- LIVE DRAGGING SLIDER ----------------
+components.html(
     f"""
     <style>
-    .stApp {{
-        background: radial-gradient(
-            circle at top,
-            {bg_color} 0%,
-            #0e1117 70%
-        );
-        transition: background 1.2s ease-in-out;
-    }}
+      .slider-container {{
+        width: 100%;
+        padding: 40px;
+        border-radius: 18px;
+        background: linear-gradient(135deg, rgb(30,60,180), #121826);
+        transition: background 0.15s linear;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+      }}
 
-    /* Slider styling */
-    div[data-baseweb="slider"] > div {{
-        transition: all 0.3s ease;
-    }}
+      input[type=range] {{
+        width: 100%;
+        -webkit-appearance: none;
+        height: 10px;
+        border-radius: 5px;
+        background: #ddd;
+        outline: none;
+      }}
 
-    /* Card-like containers */
-    .block-container {{
-        padding-top: 2rem;
-    }}
+      input[type=range]::-webkit-slider-thumb {{
+        -webkit-appearance: none;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        background: white;
+        border: 3px solid #333;
+        cursor: pointer;
+      }}
+
+      .value {{
+        margin-top: 18px;
+        font-size: 20px;
+        font-weight: 600;
+        color: white;
+      }}
     </style>
+
+    <div class="slider-container" id="bg">
+      <input type="range" min="0" max="50" value="{st.session_state.ui_threshold}" id="tempSlider">
+      <div class="value">
+        Threshold: <span id="val">{st.session_state.ui_threshold}</span> °C
+      </div>
+    </div>
+
+    <script>
+      const slider = document.getElementById("tempSlider");
+      const bg = document.getElementById("bg");
+      const val = document.getElementById("val");
+
+      function tempToColor(t) {{
+        const ratio = t / 50;
+        const r = Math.round(30 + (220 - 30) * ratio);
+        const g = Math.round(60 + (20 - 60) * ratio);
+        const b = Math.round(180 + (60 - 180) * ratio);
+        return `rgb(${{r}}, ${{g}}, ${{b}})`;
+      }}
+
+      slider.addEventListener("input", () => {{
+        const temp = slider.value;
+        val.textContent = temp;
+        const color = tempToColor(temp);
+        bg.style.background = `linear-gradient(135deg, ${{color}}, #121826)`;
+      }});
+    </script>
     """,
-    unsafe_allow_html=True
+    height=260,
 )
 
-# --------- UI ----------
-st.title("🌡️ ESP32 IoT Temperature Monitoring")
-st.caption("High-end cloud dashboard • ThingSpeak • Streamlit")
+# ---------------- MANUAL THRESHOLD SYNC ----------------
+st.subheader("☁️ Sync Threshold to ThingSpeak")
+
+new_threshold = st.number_input(
+    "Confirm threshold value (°C)",
+    min_value=0,
+    max_value=50,
+    value=st.session_state.ui_threshold,
+    step=1
+)
+
+if st.button("Update Threshold in Cloud"):
+    update_threshold(new_threshold)
+    st.session_state.ui_threshold = new_threshold
+    st.success(f"Threshold updated to {new_threshold} °C")
+
+# ---------------- STATUS ----------------
+st.divider()
 
 col1, col2 = st.columns(2)
 
 with col1:
     st.subheader("📊 Live Status")
     st.metric("Current Temperature", f"{temperature:.1f} °C")
-    st.metric("Active Threshold", f"{threshold_cloud:.1f} °C")
+    st.metric("Cloud Threshold", f"{threshold_cloud:.1f} °C")
 
     if temperature > threshold_cloud:
         st.error("⚠️ Temperature exceeds threshold")
@@ -110,27 +156,11 @@ with col1:
         st.success("✅ Temperature within safe range")
 
 with col2:
-    st.subheader("🎚️ Set Temperature Threshold")
+    st.subheader("📈 Temperature History")
+    try:
+        df = get_temperature_history()
+        st.line_chart(df.set_index("created_at")["field1"])
+    except:
+        st.warning("Unable to load historical data")
 
-    new_threshold = st.slider(
-        "Threshold (°C)",
-        min_value=0,
-        max_value=50,
-        value=int(threshold_cloud),
-        step=1
-    )
-
-    if st.button("Update Threshold"):
-        update_threshold(new_threshold)
-        st.success(f"Threshold updated to {new_threshold} °C")
-
-st.divider()
-
-st.subheader("📈 Temperature History")
-
-try:
-    df = get_temperature_history()
-    st.line_chart(df.set_index("created_at")["field1"])
-except:
-    st.warning("Unable to load historical data")
 
