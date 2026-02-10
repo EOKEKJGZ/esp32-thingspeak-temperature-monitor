@@ -51,7 +51,10 @@ def get_temperature_history():
     return df
 
 # --------- AUTO REFRESH ----------
-st.experimental_autorefresh(interval=20000, key="refresh")
+from streamlit_autorefresh import st_autorefresh
+
+st_autorefresh(interval=20000, key="refresh")
+
 
 # --------- READ CLOUD VALUES ----------
 try:
