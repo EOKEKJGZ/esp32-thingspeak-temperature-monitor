@@ -1,5 +1,4 @@
 import streamlit as st
-import streamlit.components.v1 as components
 import requests
 import pandas as pd
 from datetime import datetime, timezone
@@ -11,7 +10,7 @@ WRITE_API_KEY = "89Q4XRJ8U1GJGYKF"
 # ----------------------------------------
 
 st.set_page_config(
-    page_title="ESP32 IoT Temperature Dashboard",
+    page_title="ESP32 Temperature Monitor",
     page_icon="🌡️",
     layout="wide"
 )
@@ -22,7 +21,7 @@ def get_latest_temperature():
     r = requests.get(url, timeout=5).json()
     return float(r["field1"]), r["created_at"]
 
-def get_current_threshold():
+def get_threshold():
     url = f"https://api.thingspeak.com/channels/{CHANNEL_ID}/fields/2/last.txt?api_key={READ_API_KEY}"
     return float(requests.get(url, timeout=5).text)
 
@@ -30,170 +29,129 @@ def update_threshold(value):
     url = f"https://api.thingspeak.com/update?api_key={WRITE_API_KEY}&field2={value}"
     requests.get(url, timeout=5)
 
-def get_temperature_history():
-    url = f"https://api.thingspeak.com/channels/{CHANNEL_ID}/fields/1.json?api_key={READ_API_KEY}&results=30"
+def get_history():
+    url = f"https://api.thingspeak.com/channels/{CHANNEL_ID}/fields/1.json?api_key={READ_API_KEY}&results=40"
     feeds = requests.get(url, timeout=5).json()["feeds"]
     df = pd.DataFrame(feeds)
     df["created_at"] = pd.to_datetime(df["created_at"])
     df["field1"] = pd.to_numeric(df["field1"])
     return df
 
-# ---------------- DATA FETCH ----------------
+# ---------------- DATA ----------------
 try:
-    temperature, last_update_raw = get_latest_temperature()
-    threshold_cloud = get_current_threshold()
+    temperature, last_raw = get_latest_temperature()
+    threshold_cloud = get_threshold()
 
-    last_update = datetime.fromisoformat(
-        last_update_raw.replace("Z", "+00:00")
-    )
-    now = datetime.now(timezone.utc)
-    esp32_online = (now - last_update).seconds < 60
+    last_update = datetime.fromisoformat(last_raw.replace("Z", "+00:00"))
+    esp32_online = (datetime.now(timezone.utc) - last_update).seconds < 60
 except:
     temperature = 0
     threshold_cloud = 30
     esp32_online = False
     last_update = None
 
-# ---------------- SESSION STATE ----------------
-if "ui_threshold" not in st.session_state:
-    st.session_state.ui_threshold = int(threshold_cloud)
+# ---------------- SESSION ----------------
+if "threshold_ui" not in st.session_state:
+    st.session_state.threshold_ui = int(threshold_cloud)
 
 # ---------------- FULL BACKGROUND STYLE ----------------
-st.markdown(
-    """
-    <style>
-    .stApp {
-        transition: background 0.25s linear;
-    }
+def temp_gradient(val):
+    ratio = min(max(val / 50, 0), 1)
+    r = int(20 + ratio * 160)
+    g = int(60 - ratio * 40)
+    b = int(120 - ratio * 80)
+    return f"rgb({r},{g},{b})"
 
-    .glass-card {
-        background: rgba(255,255,255,0.08);
-        backdrop-filter: blur(14px);
-        border-radius: 18px;
-        padding: 24px;
-        box-shadow: 0 20px 40px rgba(0,0,0,0.35);
-    }
+bg_color = temp_gradient(st.session_state.threshold_ui)
+
+st.markdown(
+    f"""
+    <style>
+    .stApp {{
+        background: linear-gradient(
+            135deg,
+            {bg_color},
+            #0e1117
+        );
+        transition: background 0.6s ease;
+    }}
+
+    .card {{
+        background: rgba(255,255,255,0.06);
+        border-radius: 16px;
+        padding: 22px;
+        box-shadow: 0 12px 30px rgba(0,0,0,0.4);
+    }}
+
+    h1, h2, h3, p {{
+        color: #f2f2f2;
+    }}
     </style>
     """,
     unsafe_allow_html=True
 )
 
-# ---------------- LIVE SLIDER (FULL PAGE COLOR) ----------------
-components.html(
-    f"""
-    <style>
-      input[type=range] {{
-        width: 100%;
-        -webkit-appearance: none;
-        height: 10px;
-        border-radius: 5px;
-        background: #eee;
-        outline: none;
-      }}
+# ---------------- HEADER ----------------
+st.title("🌡️ ESP32 Temperature Dashboard")
+st.caption("Real-time monitoring · Cloud-synced control · Live device status")
 
-      input[type=range]::-webkit-slider-thumb {{
-        -webkit-appearance: none;
-        width: 26px;
-        height: 26px;
-        border-radius: 50%;
-        background: white;
-        border: 3px solid #222;
-        cursor: pointer;
-      }}
+st.divider()
 
-      .label {{
-        color: white;
-        font-size: 22px;
-        font-weight: 600;
-        margin-top: 12px;
-      }}
-    </style>
+# ---------------- CONTROL SECTION ----------------
+st.subheader("🎚️ Temperature Threshold")
 
-    <div class="glass-card">
-      <input type="range" min="0" max="50" value="{st.session_state.ui_threshold}" id="slider">
-      <div class="label">
-        Threshold: <span id="val">{st.session_state.ui_threshold}</span> °C
-      </div>
-    </div>
-
-    <script>
-      const slider = document.getElementById("slider");
-      const val = document.getElementById("val");
-
-      function tempToColor(t) {{
-        const r = Math.round(30 + (220 - 30) * (t / 50));
-        const g = Math.round(60 + (20 - 60) * (t / 50));
-        const b = Math.round(180 + (60 - 180) * (t / 50));
-        return `rgb(${{r}},${{g}},${{b}})`;
-      }}
-
-      function applyBackground(temp) {{
-        const color = tempToColor(temp);
-        document.body.style.background =
-          `linear-gradient(135deg, ${{color}}, #0e1117)`;
-      }}
-
-      applyBackground(slider.value);
-
-      slider.addEventListener("input", () => {{
-        val.textContent = slider.value;
-        applyBackground(slider.value);
-      }});
-
-      slider.addEventListener("change", () => {{
-        window.parent.postMessage(
-          {{ threshold: slider.value }},
-          "*"
-        );
-      }});
-    </script>
-    """,
-    height=200,
+new_threshold = st.slider(
+    "",
+    min_value=0,
+    max_value=50,
+    value=st.session_state.threshold_ui,
+    help="Set the temperature limit synced with ESP32"
 )
 
-# ---------------- AUTO SYNC (AFTER DRAG) ----------------
-if "threshold" in st.query_params:
-    st.session_state.ui_threshold = int(st.query_params["threshold"])
-    update_threshold(st.session_state.ui_threshold)
+if new_threshold != st.session_state.threshold_ui:
+    st.session_state.threshold_ui = new_threshold
+    update_threshold(new_threshold)
 
-# ---------------- DASHBOARD CONTENT ----------------
-st.markdown("<br>", unsafe_allow_html=True)
+st.divider()
 
+# ---------------- STATUS CARDS ----------------
 col1, col2, col3 = st.columns(3)
 
 with col1:
-    st.markdown("<div class='glass-card'>", unsafe_allow_html=True)
-    st.metric("🌡️ Temperature", f"{temperature:.1f} °C")
-    st.metric("🎚️ Threshold", f"{threshold_cloud:.1f} °C")
+    st.markdown("<div class='card'>", unsafe_allow_html=True)
+    st.metric("Current Temperature", f"{temperature:.1f} °C")
     st.markdown("</div>", unsafe_allow_html=True)
 
 with col2:
-    st.markdown("<div class='glass-card'>", unsafe_allow_html=True)
+    st.markdown("<div class='card'>", unsafe_allow_html=True)
     if esp32_online:
-        st.success("🟢 ESP32 ONLINE")
+        st.success("ESP32 ONLINE")
     else:
-        st.error("🔴 ESP32 OFFLINE")
+        st.error("ESP32 OFFLINE")
 
     if last_update:
         st.caption(f"Last update: {last_update.strftime('%H:%M:%S UTC')}")
     st.markdown("</div>", unsafe_allow_html=True)
 
 with col3:
-    st.markdown("<div class='glass-card'>", unsafe_allow_html=True)
+    st.markdown("<div class='card'>", unsafe_allow_html=True)
+    st.metric("Active Threshold", f"{threshold_cloud:.1f} °C")
     if temperature > threshold_cloud:
-        st.error("⚠️ Over Temperature")
+        st.error("Over Temperature")
     else:
-        st.success("✅ Normal Operation")
+        st.success("Normal Operation")
     st.markdown("</div>", unsafe_allow_html=True)
 
+# ---------------- CHART ----------------
 st.divider()
-
 st.subheader("📈 Temperature History")
+
 try:
-    df = get_temperature_history()
+    df = get_history()
     st.line_chart(df.set_index("created_at")["field1"])
 except:
-    st.warning("Unable to load data")
+    st.warning("Unable to load historical data")
+
 
 
 
