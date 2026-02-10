@@ -2,6 +2,7 @@ import streamlit as st
 import streamlit.components.v1 as components
 import requests
 import pandas as pd
+from datetime import datetime, timezone
 
 # ---------------- CONFIG ----------------
 CHANNEL_ID = "3254015"
@@ -15,19 +16,15 @@ st.set_page_config(
     layout="wide"
 )
 
-st.title("🌡️ ESP32 IoT Temperature Monitoring")
-st.caption("Live IoT dashboard • ThingSpeak • Streamlit")
-
 # ---------------- API FUNCTIONS ----------------
 def get_latest_temperature():
     url = f"https://api.thingspeak.com/channels/{CHANNEL_ID}/fields/1/last.json?api_key={READ_API_KEY}"
-    r = requests.get(url, timeout=5)
-    return float(r.json()["field1"])
+    r = requests.get(url, timeout=5).json()
+    return float(r["field1"]), r["created_at"]
 
 def get_current_threshold():
     url = f"https://api.thingspeak.com/channels/{CHANNEL_ID}/fields/2/last.txt?api_key={READ_API_KEY}"
-    r = requests.get(url, timeout=5)
-    return float(r.text)
+    return float(requests.get(url, timeout=5).text)
 
 def update_threshold(value):
     url = f"https://api.thingspeak.com/update?api_key={WRITE_API_KEY}&field2={value}"
@@ -35,132 +32,168 @@ def update_threshold(value):
 
 def get_temperature_history():
     url = f"https://api.thingspeak.com/channels/{CHANNEL_ID}/fields/1.json?api_key={READ_API_KEY}&results=30"
-    data = requests.get(url, timeout=5).json()["feeds"]
-    df = pd.DataFrame(data)
+    feeds = requests.get(url, timeout=5).json()["feeds"]
+    df = pd.DataFrame(feeds)
     df["created_at"] = pd.to_datetime(df["created_at"])
     df["field1"] = pd.to_numeric(df["field1"])
     return df
 
-# ---------------- READ CLOUD DATA ----------------
+# ---------------- DATA FETCH ----------------
 try:
-    temperature = get_latest_temperature()
+    temperature, last_update_raw = get_latest_temperature()
     threshold_cloud = get_current_threshold()
+
+    last_update = datetime.fromisoformat(
+        last_update_raw.replace("Z", "+00:00")
+    )
+    now = datetime.now(timezone.utc)
+    esp32_online = (now - last_update).seconds < 60
 except:
     temperature = 0
     threshold_cloud = 30
+    esp32_online = False
+    last_update = None
 
 # ---------------- SESSION STATE ----------------
 if "ui_threshold" not in st.session_state:
     st.session_state.ui_threshold = int(threshold_cloud)
 
-# ---------------- LIVE DRAGGING SLIDER ----------------
+# ---------------- FULL BACKGROUND STYLE ----------------
+st.markdown(
+    """
+    <style>
+    .stApp {
+        transition: background 0.25s linear;
+    }
+
+    .glass-card {
+        background: rgba(255,255,255,0.08);
+        backdrop-filter: blur(14px);
+        border-radius: 18px;
+        padding: 24px;
+        box-shadow: 0 20px 40px rgba(0,0,0,0.35);
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
+# ---------------- LIVE SLIDER (FULL PAGE COLOR) ----------------
 components.html(
     f"""
     <style>
-      .slider-container {{
-        width: 100%;
-        padding: 40px;
-        border-radius: 18px;
-        background: linear-gradient(135deg, rgb(30,60,180), #121826);
-        transition: background 0.15s linear;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-      }}
-
       input[type=range] {{
         width: 100%;
         -webkit-appearance: none;
         height: 10px;
         border-radius: 5px;
-        background: #ddd;
+        background: #eee;
         outline: none;
       }}
 
       input[type=range]::-webkit-slider-thumb {{
         -webkit-appearance: none;
-        width: 24px;
-        height: 24px;
+        width: 26px;
+        height: 26px;
         border-radius: 50%;
         background: white;
-        border: 3px solid #333;
+        border: 3px solid #222;
         cursor: pointer;
       }}
 
-      .value {{
-        margin-top: 18px;
-        font-size: 20px;
-        font-weight: 600;
+      .label {{
         color: white;
+        font-size: 22px;
+        font-weight: 600;
+        margin-top: 12px;
       }}
     </style>
 
-    <div class="slider-container" id="bg">
-      <input type="range" min="0" max="50" value="{st.session_state.ui_threshold}" id="tempSlider">
-      <div class="value">
+    <div class="glass-card">
+      <input type="range" min="0" max="50" value="{st.session_state.ui_threshold}" id="slider">
+      <div class="label">
         Threshold: <span id="val">{st.session_state.ui_threshold}</span> °C
       </div>
     </div>
 
     <script>
-      const slider = document.getElementById("tempSlider");
-      const bg = document.getElementById("bg");
+      const slider = document.getElementById("slider");
       const val = document.getElementById("val");
 
       function tempToColor(t) {{
-        const ratio = t / 50;
-        const r = Math.round(30 + (220 - 30) * ratio);
-        const g = Math.round(60 + (20 - 60) * ratio);
-        const b = Math.round(180 + (60 - 180) * ratio);
-        return `rgb(${{r}}, ${{g}}, ${{b}})`;
+        const r = Math.round(30 + (220 - 30) * (t / 50));
+        const g = Math.round(60 + (20 - 60) * (t / 50));
+        const b = Math.round(180 + (60 - 180) * (t / 50));
+        return `rgb(${{r}},${{g}},${{b}})`;
       }}
 
-      slider.addEventListener("input", () => {{
-        const temp = slider.value;
-        val.textContent = temp;
+      function applyBackground(temp) {{
         const color = tempToColor(temp);
-        bg.style.background = `linear-gradient(135deg, ${{color}}, #121826)`;
+        document.body.style.background =
+          `linear-gradient(135deg, ${{color}}, #0e1117)`;
+      }}
+
+      applyBackground(slider.value);
+
+      slider.addEventListener("input", () => {{
+        val.textContent = slider.value;
+        applyBackground(slider.value);
+      }});
+
+      slider.addEventListener("change", () => {{
+        window.parent.postMessage(
+          {{ threshold: slider.value }},
+          "*"
+        );
       }});
     </script>
     """,
-    height=260,
+    height=200,
 )
 
-# ---------------- MANUAL THRESHOLD SYNC ----------------
-st.subheader("☁️ Sync Threshold to ThingSpeak")
+# ---------------- AUTO SYNC (AFTER DRAG) ----------------
+if "threshold" in st.query_params:
+    st.session_state.ui_threshold = int(st.query_params["threshold"])
+    update_threshold(st.session_state.ui_threshold)
 
-new_threshold = st.number_input(
-    "Confirm threshold value (°C)",
-    min_value=0,
-    max_value=50,
-    value=st.session_state.ui_threshold,
-    step=1
-)
+# ---------------- DASHBOARD CONTENT ----------------
+st.markdown("<br>", unsafe_allow_html=True)
 
-if st.button("Update Threshold in Cloud"):
-    update_threshold(new_threshold)
-    st.session_state.ui_threshold = new_threshold
-    st.success(f"Threshold updated to {new_threshold} °C")
-
-# ---------------- STATUS ----------------
-st.divider()
-
-col1, col2 = st.columns(2)
+col1, col2, col3 = st.columns(3)
 
 with col1:
-    st.subheader("📊 Live Status")
-    st.metric("Current Temperature", f"{temperature:.1f} °C")
-    st.metric("Cloud Threshold", f"{threshold_cloud:.1f} °C")
-
-    if temperature > threshold_cloud:
-        st.error("⚠️ Temperature exceeds threshold")
-    else:
-        st.success("✅ Temperature within safe range")
+    st.markdown("<div class='glass-card'>", unsafe_allow_html=True)
+    st.metric("🌡️ Temperature", f"{temperature:.1f} °C")
+    st.metric("🎚️ Threshold", f"{threshold_cloud:.1f} °C")
+    st.markdown("</div>", unsafe_allow_html=True)
 
 with col2:
-    st.subheader("📈 Temperature History")
-    try:
-        df = get_temperature_history()
-        st.line_chart(df.set_index("created_at")["field1"])
-    except:
-        st.warning("Unable to load historical data")
+    st.markdown("<div class='glass-card'>", unsafe_allow_html=True)
+    if esp32_online:
+        st.success("🟢 ESP32 ONLINE")
+    else:
+        st.error("🔴 ESP32 OFFLINE")
+
+    if last_update:
+        st.caption(f"Last update: {last_update.strftime('%H:%M:%S UTC')}")
+    st.markdown("</div>", unsafe_allow_html=True)
+
+with col3:
+    st.markdown("<div class='glass-card'>", unsafe_allow_html=True)
+    if temperature > threshold_cloud:
+        st.error("⚠️ Over Temperature")
+    else:
+        st.success("✅ Normal Operation")
+    st.markdown("</div>", unsafe_allow_html=True)
+
+st.divider()
+
+st.subheader("📈 Temperature History")
+try:
+    df = get_temperature_history()
+    st.line_chart(df.set_index("created_at")["field1"])
+except:
+    st.warning("Unable to load data")
+
 
 
