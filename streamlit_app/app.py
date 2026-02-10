@@ -54,12 +54,12 @@ except:
 if "threshold_ui" not in st.session_state:
     st.session_state.threshold_ui = int(threshold_cloud)
 
-# ---------------- FULL BACKGROUND STYLE ----------------
+# ---------------- BACKGROUND COLOR ----------------
 def temp_gradient(val):
     ratio = min(max(val / 50, 0), 1)
-    r = int(20 + ratio * 160)
-    g = int(60 - ratio * 40)
-    b = int(120 - ratio * 80)
+    r = int(30 + ratio * 150)
+    g = int(70 - ratio * 40)
+    b = int(160 - ratio * 90)
     return f"rgb({r},{g},{b})"
 
 bg_color = temp_gradient(st.session_state.threshold_ui)
@@ -68,23 +68,15 @@ st.markdown(
     f"""
     <style>
     .stApp {{
-        background: linear-gradient(
-            135deg,
-            {bg_color},
-            #0e1117
-        );
-        transition: background 0.6s ease;
+        background: linear-gradient(135deg, {bg_color}, #0e1117);
+        transition: background 0.1s linear;
     }}
 
     .card {{
         background: rgba(255,255,255,0.06);
         border-radius: 16px;
         padding: 22px;
-        box-shadow: 0 12px 30px rgba(0,0,0,0.4);
-    }}
-
-    h1, h2, h3, p {{
-        color: #f2f2f2;
+        box-shadow: 0 12px 28px rgba(0,0,0,0.4);
     }}
     </style>
     """,
@@ -93,57 +85,61 @@ st.markdown(
 
 # ---------------- HEADER ----------------
 st.title("🌡️ ESP32 Temperature Dashboard")
-st.caption("Real-time monitoring · Cloud-synced control · Live device status")
+st.caption("Preview → Apply → ESP32 updates")
 
 st.divider()
 
-# ---------------- CONTROL SECTION ----------------
+# ---------------- CONTROL ----------------
 st.subheader("🎚️ Temperature Threshold")
 
 new_threshold = st.slider(
-    "",
-    min_value=0,
-    max_value=50,
-    value=st.session_state.threshold_ui,
-    help="Set the temperature limit synced with ESP32"
+    "Preview threshold (°C)",
+    0, 50,
+    st.session_state.threshold_ui
 )
 
-if new_threshold != st.session_state.threshold_ui:
-    st.session_state.threshold_ui = new_threshold
+st.markdown("")
+
+if st.button("✅ Apply Threshold", use_container_width=True):
     update_threshold(new_threshold)
+    st.session_state.threshold_ui = new_threshold
+    st.success(f"Threshold set to {new_threshold} °C")
 
 st.divider()
 
-# ---------------- STATUS CARDS ----------------
+# ---------------- STATUS ----------------
 col1, col2, col3 = st.columns(3)
 
 with col1:
     st.markdown("<div class='card'>", unsafe_allow_html=True)
-    st.metric("Current Temperature", f"{temperature:.1f} °C")
+    st.metric("🌡️ Temperature", f"{temperature:.1f} °C")
     st.markdown("</div>", unsafe_allow_html=True)
 
 with col2:
     st.markdown("<div class='card'>", unsafe_allow_html=True)
+    st.metric("🎚️ Active Threshold", f"{threshold_cloud:.1f} °C")
+    st.markdown("</div>", unsafe_allow_html=True)
+
+with col3:
+    st.markdown("<div class='card'>", unsafe_allow_html=True)
     if esp32_online:
-        st.success("ESP32 ONLINE")
+        st.success("🟢 ESP32 ONLINE")
     else:
-        st.error("ESP32 OFFLINE")
+        st.error("🔴 ESP32 OFFLINE")
 
     if last_update:
         st.caption(f"Last update: {last_update.strftime('%H:%M:%S UTC')}")
     st.markdown("</div>", unsafe_allow_html=True)
 
-with col3:
-    st.markdown("<div class='card'>", unsafe_allow_html=True)
-    st.metric("Active Threshold", f"{threshold_cloud:.1f} °C")
-    if temperature > threshold_cloud:
-        st.error("Over Temperature")
-    else:
-        st.success("Normal Operation")
-    st.markdown("</div>", unsafe_allow_html=True)
+# ---------------- STATE ----------------
+st.divider()
+
+if temperature > threshold_cloud:
+    st.error("⚠️ Temperature exceeds threshold")
+else:
+    st.success("✅ Temperature within safe range")
 
 # ---------------- CHART ----------------
-st.divider()
 st.subheader("📈 Temperature History")
 
 try:
@@ -151,6 +147,7 @@ try:
     st.line_chart(df.set_index("created_at")["field1"])
 except:
     st.warning("Unable to load historical data")
+
 
 
 
