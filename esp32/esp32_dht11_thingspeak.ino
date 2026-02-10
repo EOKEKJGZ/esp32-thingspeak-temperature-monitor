@@ -3,12 +3,12 @@
 #include "DHT.h"
 
 /* -------- USER CONFIG -------- */
-const char* ssid = "Galaxy S23ultra";
-const char* password = "eokekjgz";
+const char* ssid = "";
+const char* password = "";
 
-String writeAPIKey = "89Q4XRJ8U1GJGYKF";
-String readAPIKey  = "79SP1MV4ASBVHNBY";
-String channelID   = "3254015";
+String writeAPIKey = "";
+String readAPIKey  = "";
+String channelID   = "";
 /* ----------------------------- */
 
 #define DHTPIN 4
