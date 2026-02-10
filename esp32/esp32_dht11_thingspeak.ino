@@ -3,11 +3,11 @@
 #include "DHT.h"
 
 /* -------- USER CONFIG -------- */
-const char* ssid = "YOUR_WIFI_NAME";
-const char* password = "YOUR_WIFI_PASSWORD";
+const char* ssid = "Galaxy S23ultra";
+const char* password = "eokekjgz";
 
-String writeAPIKey = "YOUR_THINGSPEAK_WRITE_KEY";
-String readAPIKey  = "YOUR_THINGSPEAK_READ_KEY";
+String writeAPIKey = "89Q4XRJ8U1GJGYKF";
+String readAPIKey  = "79SP1MV4ASBVHNBY";
 String channelID   = "YOUR_CHANNEL_ID";
 /* ----------------------------- */
 
