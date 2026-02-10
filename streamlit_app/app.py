@@ -7,6 +7,8 @@ from datetime import datetime, timezone
 CHANNEL_ID = "3254015"
 READ_API_KEY = "79SP1MV4ASBVHNBY"
 WRITE_API_KEY = "89Q4XRJ8U1GJGYKF"
+
+ESP32_LOOP_INTERVAL = 20  # seconds
 # ----------------------------------------
 
 st.set_page_config(
@@ -37,24 +39,30 @@ def get_history():
     df["field1"] = pd.to_numeric(df["field1"])
     return df
 
-# ---------------- DATA ----------------
+# ---------------- DATA FETCH ----------------
 try:
     temperature, last_raw = get_latest_temperature()
-    threshold_cloud = get_threshold()
+    threshold_applied = get_threshold()
 
     last_update = datetime.fromisoformat(last_raw.replace("Z", "+00:00"))
-    esp32_online = (datetime.now(timezone.utc) - last_update).seconds < 60
+    now = datetime.now(timezone.utc)
+
+    esp32_online = (now - last_update).seconds < ESP32_LOOP_INTERVAL * 2
+    seconds_since_update = (now - last_update).seconds
+    countdown = max(ESP32_LOOP_INTERVAL - seconds_since_update, 0)
+
 except:
     temperature = 0
-    threshold_cloud = 30
-    esp32_online = False
+    threshold_applied = 30
     last_update = None
+    esp32_online = False
+    countdown = None
 
 # ---------------- SESSION ----------------
 if "threshold_ui" not in st.session_state:
-    st.session_state.threshold_ui = int(threshold_cloud)
+    st.session_state.threshold_ui = int(threshold_applied)
 
-# ---------------- BACKGROUND COLOR ----------------
+# ---------------- BACKGROUND ----------------
 def temp_gradient(val):
     ratio = min(max(val / 50, 0), 1)
     r = int(30 + ratio * 150)
@@ -71,7 +79,6 @@ st.markdown(
         background: linear-gradient(135deg, {bg_color}, #0e1117);
         transition: background 0.1s linear;
     }}
-
     .card {{
         background: rgba(255,255,255,0.06);
         border-radius: 16px;
@@ -85,7 +92,7 @@ st.markdown(
 
 # ---------------- HEADER ----------------
 st.title("🌡️ ESP32 Temperature Dashboard")
-st.caption("Preview → Apply → ESP32 updates")
+st.caption("Applied vs Pending · Device heartbeat · Cloud-synced control")
 
 st.divider()
 
@@ -98,16 +105,25 @@ new_threshold = st.slider(
     st.session_state.threshold_ui
 )
 
-st.markdown("")
-
 if st.button("✅ Apply Threshold", use_container_width=True):
     update_threshold(new_threshold)
     st.session_state.threshold_ui = new_threshold
-    st.success(f"Threshold set to {new_threshold} °C")
+    st.success(f"Threshold update queued: {new_threshold} °C")
+
+# ---------------- BADGES ----------------
+st.markdown("")
+
+if st.session_state.threshold_ui == int(threshold_applied):
+    st.success("✅ Threshold Applied")
+else:
+    st.warning(
+        f"⏳ Pending — waiting for ESP32 update "
+        f"({st.session_state.threshold_ui} °C → {threshold_applied} °C)"
+    )
 
 st.divider()
 
-# ---------------- STATUS ----------------
+# ---------------- STATUS CARDS ----------------
 col1, col2, col3 = st.columns(3)
 
 with col1:
@@ -117,7 +133,7 @@ with col1:
 
 with col2:
     st.markdown("<div class='card'>", unsafe_allow_html=True)
-    st.metric("🎚️ Active Threshold", f"{threshold_cloud:.1f} °C")
+    st.metric("🎚️ Applied Threshold", f"{threshold_applied:.1f} °C")
     st.markdown("</div>", unsafe_allow_html=True)
 
 with col3:
@@ -131,15 +147,19 @@ with col3:
         st.caption(f"Last update: {last_update.strftime('%H:%M:%S UTC')}")
     st.markdown("</div>", unsafe_allow_html=True)
 
-# ---------------- STATE ----------------
+# ---------------- LOOP INFO ----------------
 st.divider()
+st.subheader("⏱ ESP32 Loop Status")
 
-if temperature > threshold_cloud:
-    st.error("⚠️ Temperature exceeds threshold")
-else:
-    st.success("✅ Temperature within safe range")
+st.markdown(
+    f"""
+    - **Loop interval:** `{ESP32_LOOP_INTERVAL} seconds`
+    - **Next expected update in:** `{countdown} seconds`
+    """,
+)
 
 # ---------------- CHART ----------------
+st.divider()
 st.subheader("📈 Temperature History")
 
 try:
@@ -147,6 +167,7 @@ try:
     st.line_chart(df.set_index("created_at")["field1"])
 except:
     st.warning("Unable to load historical data")
+
 
 
 
