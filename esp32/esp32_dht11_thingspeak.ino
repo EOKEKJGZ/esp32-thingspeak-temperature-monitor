@@ -8,7 +8,7 @@ const char* password = "eokekjgz";
 
 String writeAPIKey = "89Q4XRJ8U1GJGYKF";
 String readAPIKey  = "79SP1MV4ASBVHNBY";
-String channelID   = "YOUR_CHANNEL_ID";
+String channelID   = "3254015";
 /* ----------------------------- */
 
 #define DHTPIN 4
