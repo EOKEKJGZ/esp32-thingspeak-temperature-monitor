@@ -59,9 +59,9 @@ try:
     last_update = datetime.fromisoformat(last_raw.replace("Z", "+00:00"))
     esp32_online = (datetime.now(timezone.utc) - last_update).seconds < 60
 except:
-    temperature = 0
-    humidity = 0
-    threshold_cloud = 30
+    temperature = 0.0
+    humidity = 0.0
+    threshold_cloud = 30.0
     esp32_online = False
     last_update = None
 
@@ -86,7 +86,6 @@ st.markdown(
         background: linear-gradient(135deg, {bg_color}, #0e1117);
         transition: background 0.15s linear;
     }}
-
     .card {{
         background: rgba(255,255,255,0.06);
         border-radius: 16px;
@@ -140,7 +139,11 @@ with col3:
 
 with col4:
     st.markdown("<div class='card'>", unsafe_allow_html=True)
-    st.success("🟢 ESP32 ONLINE") if esp32_online else st.error("🔴 ESP32 OFFLINE")
+    if esp32_online:
+        st.success("🟢 ESP32 ONLINE")
+    else:
+        st.error("🔴 ESP32 OFFLINE")
+
     if last_update:
         st.caption(f"Last update: {last_update.strftime('%H:%M:%S UTC')}")
     st.markdown("</div>", unsafe_allow_html=True)
@@ -173,6 +176,7 @@ with col_h:
         st.line_chart(df_h.set_index("created_at")["field3"])
     except:
         st.warning("Humidity history unavailable")
+
 
 
 
