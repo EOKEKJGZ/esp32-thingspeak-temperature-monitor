@@ -411,32 +411,7 @@ st.markdown(
         50%       {{ box-shadow: 0 0 10px 3px rgba(244,67,54,0.25); }}
     }}
 
-    /* ── Background wipe: top → bottom curtain on every rerun ── */
-    @keyframes bgWipe {{
-        0%   {{ clip-path: inset(0 0 100% 0); opacity: 1; }}
-        70%  {{ clip-path: inset(0 0 0%   0); opacity: 1; }}
-        92%  {{ clip-path: inset(0 0 0%   0); opacity: 0.6; }}
-        100% {{ clip-path: inset(0 0 0%   0); opacity: 0; }}
-    }}
     </style>
-    """,
-    unsafe_allow_html=True,
-)
-
-# ============================================================
-# BACKGROUND WIPE OVERLAY  (top → bottom curtain on every rerun)
-# ============================================================
-st.markdown(
-    f"""
-    <div style="
-        position: fixed;
-        top: 0; left: 0;
-        width: 100vw; height: 100vh;
-        background: linear-gradient(145deg, {bg1} 0%, {bg2} 60%, #0a0a0a 100%);
-        animation: bgWipe 2.0s ease-in-out forwards;
-        pointer-events: none;
-        z-index: 10;
-    "></div>
     """,
     unsafe_allow_html=True,
 )
@@ -599,3 +574,4 @@ st.markdown("""
     ESP32 · ThingSpeak · Streamlit &nbsp;|&nbsp; Real-time IoT Monitoring
 </div>
 """, unsafe_allow_html=True)
+
