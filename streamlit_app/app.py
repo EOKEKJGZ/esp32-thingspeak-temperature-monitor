@@ -74,23 +74,23 @@ if "threshold_ui" not in st.session_state:
 def compute_gradient(val):
     ratio = min(max(val / 50, 0), 1)
     
-    # Text Accent Color (Soft Cyan -> Soothing Lavender -> Warm Blush)
+    # Ultra-minimalist Muted Gold / Bone White Accents
     if ratio < 0.5:
-        # Cyan (56, 189, 248) to Lavender (167, 139, 250)
-        r_acc = int(56 + ratio * 2 * (167 - 56))
-        g_acc = int(189 + ratio * 2 * (139 - 189))
-        b_acc = int(248 + ratio * 2 * (250 - 248))
+        # Subtle Zinc (161, 161, 170) -> Bone/Oyster (212, 212, 216)
+        r_acc = int(161 + ratio * 2 * (212 - 161))
+        g_acc = int(161 + ratio * 2 * (212 - 161))
+        b_acc = int(170 + ratio * 2 * (216 - 170))
     else:
-        # Lavender (167, 139, 250) to Blush (244, 114, 182)
+        # Bone/Oyster (212, 212, 216) -> Muted Gold/Bronze (212, 175, 55)
         r2 = (ratio - 0.5) * 2
-        r_acc = int(167 + r2 * (244 - 167))
-        g_acc = int(139 - r2 * (139 - 114))
-        b_acc = int(250 - r2 * (250 - 182))
+        r_acc = int(212 + r2 * (212 - 212))
+        g_acc = int(212 - r2 * (212 - 175))
+        b_acc = int(216 - r2 * (216 - 55))
         
     accent_hex = f"#{r_acc:02x}{g_acc:02x}{b_acc:02x}"
     
-    # Premium Soothing Background Base (Deep Slate)
-    bg_color = "#0f172a"
+    # Absolute Minimalist Graphite Base
+    bg_color = "#111111"
         
     return accent_hex, bg_color
 
@@ -99,14 +99,14 @@ accent, bg_color = compute_gradient(current_ui_temp)
 
 alert_mode = temperature > threshold_cloud
 
-glow = "rgba(248, 113, 113, 0.4)" if alert_mode else "rgba(94, 234, 212, 0.3)"
-banner_bg = "rgba(248, 113, 113, 0.12)" if alert_mode else "rgba(94, 234, 212, 0.08)"
-banner_border = "#f87171" if alert_mode else "#5eead4"
-banner_icon = "⚠️" if alert_mode else "✨"
-banner_text = "Critical Environment Alert: Threshold Exceeded." if alert_mode else "Environment is operating seamlessly."
+glow = "rgba(239, 68, 68, 0.4)" if alert_mode else "rgba(212, 175, 55, 0.2)"
+banner_bg = "rgba(239, 68, 68, 0.1)" if alert_mode else "rgba(212, 175, 55, 0.05)"
+banner_border = "#ef4444" if alert_mode else "#d4af37"
+banner_icon = "⚠️" if alert_mode else "✓"
+banner_text = "Critical Environment Alert: Threshold Exceeded." if alert_mode else "System Nominal. Environment within structural limits."
 
-status_bg = "rgba(94, 234, 212, 0.15)" if esp32_online else "rgba(248, 113, 113, 0.15)"
-status_dot = "#5eead4" if esp32_online else "#f87171"
+status_bg = "rgba(255, 255, 255, 0.05)" if esp32_online else "rgba(239, 68, 68, 0.1)"
+status_dot = "#a1a1aa" if esp32_online else "#ef4444"
 status_text = "ONLINE" if esp32_online else "OFFLINE"
 
 # ---------------- INJECT CSS ----------------
@@ -118,30 +118,29 @@ st.markdown(f"""
 * {{ box-sizing: border-box; }}
 
 /* 
-  PREMIUM TWILIGHT MESH BACKGROUND 
-  Extremely soothing, modern mesh gradient with soft pastels over a deep slate base.
+  MINIMALIST ARCHITECTURAL BACKGROUND 
+  Extremely clean, geometric monochrome environment.
 */
 html, body, .stApp {{
     background-color: {bg_color} !important;
-    background-image: 
-        radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.12) 0px, transparent 50%),
-        radial-gradient(at 100% 0%, rgba(236, 72, 153, 0.12) 0px, transparent 50%),
-        radial-gradient(at 100% 100%, rgba(14, 165, 233, 0.12) 0px, transparent 50%),
-        radial-gradient(at 0% 100%, rgba(16, 185, 129, 0.12) 0px, transparent 50%) !important;
+    background-image: radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.05) 0%, transparent 60%);
     background-attachment: fixed !important;
-    color: #f8fafc;
+    color: #e4e4e7;
     font-family: 'Inter', sans-serif;
 }}
 
-/* Elegant light noise */
+/* Very fine grid pattern */
 .stApp::before {{
     content: "";
     position: fixed;
     top: 0; left: 0; width: 100vw; height: 100vh;
-    opacity: 0.025;
+    background-image: 
+        linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+    background-size: 40px 40px;
+    opacity: 0.5;
     z-index: 0;
     pointer-events: none;
-    background: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
 }}
 
 /* Hide default streamlit */
@@ -167,23 +166,22 @@ html, body, .stApp {{
     100% {{ box-shadow: 0 0 10px {status_dot}40; }}
 }}
 
-/* Premium Glass Cards - Frosted Slate */
+/* Monochrome Structure Cards */
 .ag-card {{
-    background: rgba(30, 41, 59, 0.45);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    backdrop-filter: blur(24px) saturate(140%);
-    -webkit-backdrop-filter: blur(24px) saturate(140%);
-    border-radius: 24px;
-    padding: 2rem;
-    box-shadow: 0 10px 40px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.06);
-    transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.4s ease, border-color 0.4s ease;
+    background: rgba(24, 24, 27, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    padding: 2.25rem;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
+    transition: transform 0.2s ease, border-color 0.2s ease;
     animation: fadeClipIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
     opacity: 0;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
 }}
 .ag-card:hover {{
-    transform: translateY(-4px);
-    box-shadow: 0 20px 50px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.08);
-    border-color: rgba(255, 255, 255, 0.1);
+    transform: translateY(-2px);
+    border-color: rgba(255, 255, 255, 0.15);
 }}
 
 /* Header */
@@ -265,7 +263,7 @@ html, body, .stApp {{
 }}
 .metric-header .icon {{ font-size: 1.2rem; }}
 .metric-value {{
-    font-size: 3.8rem;
+    font-size: 3.5rem;
     font-weight: 300;
     color: #ffffff;
     line-height: 1;
@@ -273,7 +271,8 @@ html, body, .stApp {{
     display: flex;
     align-items: baseline;
     gap: 8px;
-    letter-spacing: -0.05em;
+    letter-spacing: -0.02em;
+    font-family: 'Inter', sans-serif;
 }}
 .metric-unit {{
     font-size: 1.25rem;
