@@ -10,10 +10,9 @@ WRITE_API_KEY = "89Q4XRJ8U1GJGYKF"
 # ----------------------------------------
 
 st.set_page_config(
-    page_title="Antigravity Environment Monitor",
-    page_icon="💠",
-    layout="wide",
-    initial_sidebar_state="collapsed"
+    page_title="ESP32 Environment Monitor",
+    page_icon="🌡️",
+    layout="wide"
 )
 
 # ---------------- API FUNCTIONS ----------------
@@ -70,469 +69,413 @@ except:
 if "threshold_ui" not in st.session_state:
     st.session_state.threshold_ui = int(threshold_cloud)
 
-# ---------------- DYNAMIC ACCENT & BACKGROUND COLOR ----------------
-def compute_gradient(val):
-    # This scale smoothly transitions from deep icy blue (0) -> purple -> rich magenta -> deep sunset amber (50)
-    ratio = min(max(val / 50, 0), 1)
-    
-    # ACCENT (Button borders, charts, text highlights)
-    if ratio < 0.5:
-        # Cyan/Teal (45, 212, 191) to Soft Lavender (167, 139, 250)
-        r_acc = int(45 + ratio * 2 * (167 - 45))
-        g_acc = int(212 + ratio * 2 * (139 - 212))
-        b_acc = int(191 + ratio * 2 * (250 - 191))
-    else:
-        # Lavender (167, 139, 250) to Soft Sunset Flame (251, 146, 60)
-        r2 = (ratio - 0.5) * 2
-        r_acc = int(167 + r2 * (251 - 167))
-        g_acc = int(139 - r2 * (146 - 139))
-        b_acc = int(250 - r2 * (60 - 250))
-        
-    accent_hex = f"#{r_acc:02x}{g_acc:02x}{b_acc:02x}"
-    
-    # BACKGROUND (ambient glow)
-    if ratio < 0.5:
-        # Deep Midnight Navy (15, 23, 42) -> Deep Grape Violet (46, 16, 101)
-        r_bg = int(15 + ratio * 2 * (46 - 15))
-        g_bg = int(23 + ratio * 2 * (16 - 23))
-        b_bg = int(42 + ratio * 2 * (101 - 42))
-    else:
-        # Deep Grape Violet (46, 16, 101) -> Deep Crimson Amber (69, 10, 10)
-        r2 = (ratio - 0.5) * 2
-        r_bg = int(46 + r2 * (69 - 46))
-        g_bg = int(16 - r2 * (16 - 10))
-        b_bg = int(101 - r2 * (101 - 10))
-        
-    return accent_hex, f"#{r_bg:02x}{g_bg:02x}{b_bg:02x}"
+# ---------------- DYNAMIC GRADIENT (Blue → Red) ----------------
+def temp_gradient(val):
+    """
+    Maps 0–50 °C to a smooth blue → red gradient pair.
+    Low  = cool deep blue  (#050d2e → #0a1a5e)
+    High = fiery red/amber (#5e0a0a → #2e0505)
+    """
+    ratio = min(max(val / 50.0, 0.0), 1.0)
 
-current_ui_temp = st.session_state.threshold_ui
-accent, bg_color = compute_gradient(current_ui_temp)
+    # Start colour  (cool dark blue at ratio=0)
+    r1 = int(5   + ratio * 93)    # 5  → 98
+    g1 = int(13  - ratio * 13)    # 13 → 0
+    b1 = int(46  - ratio * 46)    # 46 → 0
 
-alert_mode = temperature > threshold_cloud
+    # End colour (slightly lighter tone)
+    r2 = int(10  + ratio * 84)    # 10 → 94
+    g2 = int(26  - ratio * 26)    # 26 → 0
+    b2 = int(94  - ratio * 94)    # 94 → 0
 
-glow = "rgba(251, 146, 60, 0.4)" if alert_mode else f"{accent}60"
-banner_bg = "rgba(239, 68, 68, 0.15)" if alert_mode else f"{accent}15"
-banner_border = "#ef4444" if alert_mode else accent
-banner_icon = "🔥" if alert_mode else "❄️"
-banner_text = "Thermal Limit Exceeded!" if alert_mode else "Environment gracefully maintained."
+    c1 = f"rgb({r1},{g1},{b1})"
+    c2 = f"rgb({r2},{g2},{b2})"
 
-status_bg = f"{accent}15" if esp32_online else "rgba(239, 68, 68, 0.1)"
-status_dot = accent if esp32_online else "#ef4444"
-status_text = "ONLINE" if esp32_online else "OFFLINE"
+    # Accent glow used on cards etc.
+    accent_r = int(30  + ratio * 195)
+    accent_g = int(120 - ratio * 120)
+    accent_b = int(255 - ratio * 255)
+    accent   = f"rgb({accent_r},{accent_g},{accent_b})"
 
-# ---------------- INJECT CSS ----------------
-st.markdown(f"""
-<style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
+    return c1, c2, accent
 
-/* Reset */
-* {{ box-sizing: border-box; }}
+slider_val = st.session_state.threshold_ui
+bg1, bg2, accent_color = temp_gradient(slider_val)
 
-/* 
-  DYNAMIC TEMPERATURE BACKGROUND 
-  Extremely clean gradient reacting directly to slider value.
-*/
-html, body, .stApp {{
-    background-color: {bg_color} !important;
-    background-image: 
-        radial-gradient(circle at 10% 20%, {bg_color} 0%, transparent 60%),
-        radial-gradient(circle at 80% 80%, {accent}15 0%, transparent 50%),
-        radial-gradient(ellipse at 50% 120%, {accent}08 0%, transparent 70%);
-    background-attachment: fixed !important;
-    color: #e4e4e7;
-    font-family: 'Inter', sans-serif;
-    transition: background-color 1.2s ease, background-image 1.2s ease;
-}}
+# Derive a readable "temperature band" label
+if slider_val < 15:
+    band_label = "❄️ Cool"
+    band_color = "#4fc3f7"
+elif slider_val < 30:
+    band_label = "🌤️ Moderate"
+    band_color = "#a5d6a7"
+elif slider_val < 40:
+    band_label = "☀️ Warm"
+    band_color = "#ffb74d"
+else:
+    band_label = "🔥 Hot"
+    band_color = "#ef5350"
 
-/* Very fine grid pattern */
-.stApp::before {{
-    content: "";
-    position: fixed;
-    top: 0; left: 0; width: 100vw; height: 100vh;
-    background-image: 
-        linear-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
-    background-size: 30px 30px;
-    opacity: 0.6;
-    z-index: 0;
-    pointer-events: none;
-}}
+# ============================================================
+# GLOBAL CSS
+# ============================================================
+st.markdown(
+    f"""
+    <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
-/* Hide default streamlit */
-#MainMenu, footer, header {{ visibility: hidden; }}
-.block-container {{
-    padding: 3rem 4rem !important;
-    max-width: 1400px !important;
-    z-index: 1;
-    position: relative;
-}}
+    /* ── Root & Background ─────────────────────────────── */
+    html, body, [class*="stApp"] {{
+        font-family: 'Inter', sans-serif;
+        background: linear-gradient(145deg, {bg1} 0%, {bg2} 60%, #0a0a0a 100%) !important;
+        transition: background 0.6s ease;
+        color: #e8eaf6;
+    }}
 
-/* Typography */
-.mono-font {{ font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums; }}
+    /* Hide Streamlit chrome */
+    #MainMenu, footer, header {{ visibility: hidden; }}
+    .block-container {{
+        padding-top: 2rem !important;
+        padding-bottom: 3rem !important;
+        max-width: 1200px;
+    }}
 
-/* Animations */
-@keyframes fadeClipIn {{
-    0% {{ opacity: 0; clip-path: polygon(0 100%, 100% 100%, 100% 100%, 0 100%); transform: translateY(20px); }}
-    100% {{ opacity: 1; clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%); transform: translateY(0); }}
-}}
-@keyframes pulseGlow {{
-    0% {{ box-shadow: 0 0 10px {status_dot}40; }}
-    50% {{ box-shadow: 0 0 25px {status_dot}90; }}
-    100% {{ box-shadow: 0 0 10px {status_dot}40; }}
-}}
-@keyframes floatY {{
-    0% {{ transform: translateY(0px); }}
-    50% {{ transform: translateY(-3px); }}
-    100% {{ transform: translateY(0px); }}
-}}
+    /* ── Animated hero header ───────────────────────────── */
+    .hero-header {{
+        text-align: center;
+        padding: 2.5rem 1rem 1.5rem;
+        animation: fadeSlideDown 0.7s ease both;
+    }}
+    .hero-title {{
+        font-size: 2.8rem;
+        font-weight: 800;
+        background: linear-gradient(90deg, #b3e5fc, {accent_color}, #ef9a9a);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        letter-spacing: -0.5px;
+        margin-bottom: 0.3rem;
+    }}
+    .hero-sub {{
+        font-size: 0.95rem;
+        font-weight: 400;
+        color: rgba(200,210,255,0.6);
+        letter-spacing: 2px;
+        text-transform: uppercase;
+    }}
 
-/* Glass Cards */
-.ag-card {{
-    background: rgba(15, 23, 42, 0.4);
-    border: 1px solid rgba(255, 255, 255, 0.05);
-    border-radius: 20px;
-    padding: 2.25rem;
-    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255,255,255,0.06);
-    transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.4s ease, border-color 0.4s ease;
-    animation: fadeClipIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-    opacity: 0;
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-}}
-.ag-card:hover {{
-    transform: translateY(-4px);
-    border-color: {accent}50;
-    box-shadow: 0 20px 50px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.1), 0 0 30px {accent}15;
-}}
+    /* ── Divider ────────────────────────────────────────── */
+    .custom-divider {{
+        height: 1px;
+        background: linear-gradient(90deg, transparent, {accent_color}44, transparent);
+        margin: 1.5rem 0;
+        border: none;
+    }}
 
-/* Header */
-.dashboard-header {{
-    position: relative;
-    padding-bottom: 2.5rem;
-    margin-bottom: 3rem;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-end;
-    animation: fadeClipIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}}
-.header-title-wrapper {{ display: flex; flex-direction: column; gap: 8px; }}
-.header-title {{
-    font-size: 2.5rem;
-    font-weight: 500;
-    letter-spacing: -0.04em;
-    color: #ffffff;
-    line-height: 1.1;
-}}
-.header-title span {{
-    color: {accent};
-    font-weight: 600;
-    transition: color 0.8s ease;
-}}
-.header-subtitle {{
-    font-size: 0.95rem;
-    color: #a1a1aa;
-    font-weight: 400;
-    letter-spacing: 0.02em;
-    font-family: 'JetBrains Mono', monospace;
-}}
+    /* ── Glassmorphism cards ────────────────────────────── */
+    .glass-card {{
+        background: rgba(255,255,255,0.05);
+        backdrop-filter: blur(14px);
+        -webkit-backdrop-filter: blur(14px);
+        border: 1px solid rgba(255,255,255,0.10);
+        border-radius: 20px;
+        padding: 1.6rem 1.4rem;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.45),
+                    inset 0 1px 0 rgba(255,255,255,0.08);
+        transition: transform 0.25s ease, box-shadow 0.25s ease;
+        animation: fadeSlideUp 0.55s ease both;
+    }}
+    .glass-card:hover {{
+        transform: translateY(-4px);
+        box-shadow: 0 16px 40px rgba(0,0,0,0.55),
+                    0 0 0 1px {accent_color}33;
+    }}
 
-/* Status */
-.header-status-wrapper {{
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 12px;
-}}
-.status-indicator {{
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    padding: 0.6rem 1.4rem;
-    border-radius: 99px;
-    background: {status_bg};
-    border: 1px solid {status_dot}40;
-    font-size: 0.85rem;
-    font-weight: 500;
-    color: #fff;
-    font-family: 'JetBrains Mono', monospace;
-    letter-spacing: 0.05em;
-}}
-.status-dot-inner {{
-    width: 6px; height: 6px;
-    border-radius: 50%;
-    background: {status_dot};
-    box-shadow: 0 0 12px {status_dot};
-    animation: pulseGlow 2s infinite;
-}}
-.sync-time {{
-    font-size: 0.75rem;
-    color: #71717a;
-    font-family: 'JetBrains Mono', monospace;
-}}
+    /* ── Metric card content ────────────────────────────── */
+    .metric-label {{
+        font-size: 0.70rem;
+        font-weight: 600;
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+        color: rgba(200,210,255,0.55);
+        margin-bottom: 0.45rem;
+    }}
+    .metric-value {{
+        font-size: 2.3rem;
+        font-weight: 700;
+        color: #ffffff;
+        line-height: 1;
+        margin-bottom: 0.3rem;
+    }}
+    .metric-icon {{
+        font-size: 1.4rem;
+        opacity: 0.85;
+    }}
 
-/* Metrics */
-.metric-header {{
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    font-size: 0.9rem;
-    font-weight: 500;
-    color: #a1a1aa;
-    letter-spacing: 0.01em;
-    margin-bottom: 1.5rem;
-}}
-.metric-header .icon {{ font-size: 1.2rem; }}
-.metric-value {{
-    font-size: 3.5rem;
-    font-weight: 300;
-    color: #ffffff;
-    line-height: 1;
-    margin-bottom: 1rem;
-    display: flex;
-    align-items: baseline;
-    gap: 8px;
-    letter-spacing: -0.02em;
-    font-family: 'Inter', sans-serif;
-}}
-.metric-unit {{
-    font-size: 1.25rem;
-    font-weight: 400;
-    color: #71717a;
-    font-family: 'Inter', sans-serif;
-    letter-spacing: 0;
-}}
-.metric-footer {{
-    font-size: 0.85rem;
-    color: #52525b;
-    font-family: 'JetBrains Mono', monospace;
-}}
+    /* ── Status pill ────────────────────────────────────── */
+    .status-pill {{
+        display: inline-flex;
+        align-items: center;
+        gap: 0.45rem;
+        font-size: 0.78rem;
+        font-weight: 600;
+        letter-spacing: 0.8px;
+        text-transform: uppercase;
+        padding: 0.35rem 0.9rem;
+        border-radius: 50px;
+        margin-top: 0.5rem;
+    }}
+    .pill-online  {{ background: rgba(76,175,80,0.18);  border: 1px solid #4caf5066; color: #81c784; }}
+    .pill-offline {{ background: rgba(244,67,54,0.18);  border: 1px solid #f4433666; color: #e57373; }}
 
-/* Alert Banner */
-.alert-container {{
-    display: flex;
-    align-items: center;
-    gap: 1.5rem;
-    padding: 1.25rem 2rem;
-    border-radius: 100px;
-    background: {banner_bg};
-    border: 1px solid {banner_border}50;
-    margin-bottom: 3.5rem;
-    box-shadow: 0 8px 30px {glow};
-    animation: fadeClipIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-    backdrop-filter: blur(12px);
-}}
-.alert-icon {{
-    font-size: 1.4rem;
-    background: {banner_border}30;
-    width: 38px; height: 38px;
-    display: flex; align-items: center; justify-content: center;
-    border-radius: 50%;
-    animation: floatY 3s ease-in-out infinite;
-    text-shadow: 0 0 15px {banner_border};
-}}
-.alert-text {{
-    font-size: 0.95rem;
-    font-weight: 500;
-    color: #fff;
-    letter-spacing: 0.02em;
-}}
+    /* ── Alert banners ──────────────────────────────────── */
+    .alert-danger {{
+        background: linear-gradient(90deg, rgba(244,67,54,0.18), rgba(244,67,54,0.05));
+        border: 1px solid rgba(244,67,54,0.35);
+        border-left: 4px solid #f44336;
+        border-radius: 12px;
+        padding: 1rem 1.4rem;
+        color: #ef9a9a;
+        font-weight: 600;
+        animation: pulse-red 1.8s ease-in-out infinite;
+    }}
+    .alert-safe {{
+        background: linear-gradient(90deg, rgba(76,175,80,0.15), rgba(76,175,80,0.04));
+        border: 1px solid rgba(76,175,80,0.30);
+        border-left: 4px solid #4caf50;
+        border-radius: 12px;
+        padding: 1rem 1.4rem;
+        color: #a5d6a7;
+        font-weight: 600;
+    }}
 
-/* Slider overrides */
-.stSlider > div > div > div > div {{
-    background: {accent} !important;
-    transition: background-color 0.8s ease;
-}}
-.stSlider [data-testid="stThumbValue"] {{
-    font-family: 'JetBrains Mono', monospace !important;
-    color: #fff !important;
-    background: rgba(255,255,255,0.1) !important;
-    backdrop-filter: blur(10px) !important;
-    border: 1px solid rgba(255,255,255,0.2) !important;
-    font-size: 0.85rem !important;
-    border-radius: 6px !important;
-}}
+    /* ── Section heading ────────────────────────────────── */
+    .section-heading {{
+        font-size: 1.1rem;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+        color: #e8eaf6;
+        margin-bottom: 0.8rem;
+    }}
 
-/* Button overrides */
-.stButton > button {{
-    background: {accent} !important;
-    border: 1px solid rgba(255, 255, 255, 0.2) !important;
-    color: #000 !important;
-    border-radius: 100px !important;
-    font-family: 'Inter', sans-serif !important;
-    font-weight: 500 !important;
-    transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1) !important;
-    padding: 0.75rem 2rem !important;
-    box-shadow: 0 8px 25px {accent}40 !important;
-    font-size: 0.9rem !important;
-    letter-spacing: 0.02em !important;
-}}
-.stButton > button:hover {{
-    transform: translateY(-2px) scale(1.02) !important;
-    box-shadow: 0 12px 35px {accent}60, inset 0 0 0 1px rgba(255,255,255,0.4) !important;
-    filter: brightness(1.1);
-}}
-.stButton > button:active {{
-    transform: translateY(1px) scale(0.98) !important;
-    box-shadow: 0 4px 15px {accent}20 !important;
-}}
+    /* ── Gradient band badge ────────────────────────────── */
+    .band-badge {{
+        display: inline-block;
+        background: {band_color}22;
+        border: 1px solid {band_color}66;
+        color: {band_color};
+        font-size: 0.78rem;
+        font-weight: 700;
+        letter-spacing: 1px;
+        padding: 0.25rem 0.75rem;
+        border-radius: 50px;
+        vertical-align: middle;
+        margin-left: 0.6rem;
+    }}
 
-/* Section Titles */
-.section-title {{
-    font-size: 1rem;
-    font-weight: 500;
-    color: #fff;
-    margin: 4rem 0 2rem 0;
-    display: flex;
-    align-items: center;
-    gap: 1.5rem;
-    animation: fadeClipIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-    opacity: 0;
-}}
-.section-title::after {{
-    content: '';
-    flex: 1;
-    height: 1px;
-    background: linear-gradient(90deg, rgba(255,255,255,0.1), transparent);
-}}
-</style>
-""", unsafe_allow_html=True)
+    /* ── Chart wrapper ──────────────────────────────────── */
+    .chart-wrap {{
+        background: rgba(255,255,255,0.04);
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 16px;
+        padding: 1.2rem 1rem 0.8rem;
+        animation: fadeSlideUp 0.65s ease both;
+    }}
 
+    /* ── Streamlit widget overrides ─────────────────────── */
+    div[data-testid="stSlider"] > div > div > div {{
+        background: linear-gradient(90deg, #4fc3f7, {accent_color}, #ef5350) !important;
+    }}
+    div[data-testid="stSlider"] label {{
+        color: rgba(200,210,255,0.75) !important;
+        font-size: 0.82rem !important;
+        font-weight: 500 !important;
+        letter-spacing: 0.5px;
+    }}
+    button[kind="primary"], button[data-testid="baseButton-primary"] {{
+        background: linear-gradient(90deg, #1565c0, {accent_color}88) !important;
+        border: none !important;
+        border-radius: 12px !important;
+        font-weight: 600 !important;
+        letter-spacing: 0.5px;
+        transition: opacity 0.2s;
+    }}
+    button[kind="primary"]:hover {{
+        opacity: 0.88 !important;
+    }}
 
-# ---------------- LAYOUT ----------------
+    /* ── Scrollbar ──────────────────────────────────────── */
+    ::-webkit-scrollbar {{ width: 6px; }}
+    ::-webkit-scrollbar-track {{ background: transparent; }}
+    ::-webkit-scrollbar-thumb  {{ background: rgba(255,255,255,0.12); border-radius: 4px; }}
 
-last_str = last_update.strftime('%H:%M:%S UTC') if last_update else "—"
+    /* ── Keyframes ──────────────────────────────────────── */
+    @keyframes fadeSlideDown {{
+        from {{ opacity:0; transform:translateY(-20px); }}
+        to   {{ opacity:1; transform:translateY(0);     }}
+    }}
+    @keyframes fadeSlideUp {{
+        from {{ opacity:0; transform:translateY(16px);  }}
+        to   {{ opacity:1; transform:translateY(0);     }}
+    }}
+    @keyframes pulse-red {{
+        0%, 100% {{ box-shadow: 0 0 0 0 rgba(244,67,54,0); }}
+        50%       {{ box-shadow: 0 0 10px 3px rgba(244,67,54,0.25); }}
+    }}
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
 
-# Header
-st.markdown(f"""
-<div class="dashboard-header">
-  <div class="header-title-wrapper">
-    <div class="header-title">Antigravity <span>Nexus</span></div>
-    <div class="header-subtitle">// SENSOR ANALYTICS NODE V2</div>
-  </div>
-  <div class="header-status-wrapper">
-    <div class="status-indicator">
-      <div class="status-dot-inner"></div>
-      SYS.{status_text}
-    </div>
-    <div class="sync-time">REF: {last_str}</div>
-  </div>
-</div>
-""", unsafe_allow_html=True)
-
-# Alert Banner
-st.markdown(f"""
-<div class="alert-container">
-  <div class="alert-icon">{banner_icon}</div>
-  <div class="alert-text">{banner_text}</div>
-</div>
-""", unsafe_allow_html=True)
-
-# Metrics Section
+# ============================================================
+# HEADER
+# ============================================================
 st.markdown("""
-<div class="section-title" style="animation-delay: 0.1s;">Live Telemetry</div>
+    <div class="hero-header">
+        <div class="hero-title">🌡️&nbsp; ESP32 Environment Monitor</div>
+        <div class="hero-sub">Temperature &nbsp;·&nbsp; Humidity &nbsp;·&nbsp; IoT Dashboard</div>
+    </div>
 """, unsafe_allow_html=True)
 
-col1, col2, col3 = st.columns(3)
+st.markdown('<div class="custom-divider"></div>', unsafe_allow_html=True)
+
+# ============================================================
+# THRESHOLD CONTROL
+# ============================================================
+st.markdown(
+    f'<div class="section-heading">🎚️ Temperature Threshold'
+    f'<span class="band-badge">{band_label}</span></div>',
+    unsafe_allow_html=True,
+)
+
+new_threshold = st.slider(
+    "Drag to preview threshold (°C)",
+    0, 50,
+    st.session_state.threshold_ui,
+    key="slider_main"
+)
+
+# Live update background as slider moves
+if new_threshold != st.session_state.threshold_ui:
+    st.session_state.threshold_ui = new_threshold
+    st.rerun()
+
+if st.button("✅ Apply Threshold", use_container_width=True, type="primary"):
+    update_threshold(new_threshold)
+    st.session_state.threshold_ui = new_threshold
+    st.success(f"✅ Threshold updated to **{new_threshold} °C**")
+
+st.markdown('<div class="custom-divider"></div>', unsafe_allow_html=True)
+
+# ============================================================
+# STATUS CARDS
+# ============================================================
+col1, col2, col3, col4 = st.columns(4, gap="medium")
 
 with col1:
     st.markdown(f"""
-    <div class="ag-card" style="animation-delay: 0.15s; position: relative; overflow: hidden;">
-      <div style="position: absolute; top:0; left:0; right:0; height: 3px; background: {accent};"></div>
-      <div class="metric-header"><span class="icon">🌡️</span> Core Temperature</div>
-      <div class="metric-value mono-font">{temperature:.1f} <span class="metric-unit">°C</span></div>
-      <div class="metric-footer">Alarm Setpoint: {threshold_cloud:.1f}°C</div>
+    <div class="glass-card">
+        <div class="metric-label">🌡️ Temperature</div>
+        <div class="metric-value">{temperature:.1f}°<span style="font-size:1.2rem;opacity:0.7">C</span></div>
     </div>
     """, unsafe_allow_html=True)
 
 with col2:
     st.markdown(f"""
-    <div class="ag-card" style="animation-delay: 0.25s; position: relative; overflow: hidden;">
-      <div style="position: absolute; top:0; left:0; right:0; height: 3px; background: #4895ef;"></div>
-      <div class="metric-header"><span class="icon">💧</span> Ambient Humidity</div>
-      <div class="metric-value mono-font">{humidity:.1f} <span class="metric-unit">%</span></div>
-      <div class="metric-footer">Relative Saturation</div>
+    <div class="glass-card">
+        <div class="metric-label">💧 Humidity</div>
+        <div class="metric-value">{humidity:.1f}<span style="font-size:1.2rem;opacity:0.7">%</span></div>
     </div>
     """, unsafe_allow_html=True)
 
 with col3:
     st.markdown(f"""
-    <div class="ag-card" style="animation-delay: 0.35s; position: relative; overflow: hidden;">
-      <div style="position: absolute; top:0; left:0; right:0; height: 3px; background: #a1a1aa;"></div>
-      <div class="metric-header"><span class="icon">⚙️</span> Configured Threshold</div>
-      <div class="metric-value mono-font">{threshold_cloud:.1f} <span class="metric-unit">°C</span></div>
-      <div class="metric-footer">Cloud Sync Registry</div>
+    <div class="glass-card">
+        <div class="metric-label">🎚️ Active Threshold</div>
+        <div class="metric-value">{threshold_cloud:.1f}°<span style="font-size:1.2rem;opacity:0.7">C</span></div>
     </div>
     """, unsafe_allow_html=True)
 
-
-# Configuration Section
-st.markdown("""
-<div class="section-title" style="animation-delay: 0.45s;">System Configuration</div>
-""", unsafe_allow_html=True)
-
-with st.container():
-    st.markdown("""
-    <div class="ag-card" style="animation-delay: 0.55s; padding-bottom: 2.5rem;">
-      <div class="metric-header" style="margin-bottom: 2.5rem; font-size: 1rem;"><span class="icon">🎛️</span> Dynamic Threshold Control</div>
+with col4:
+    pill_class = "pill-online" if esp32_online else "pill-offline"
+    pill_dot   = "🟢" if esp32_online else "🔴"
+    pill_text  = "ONLINE" if esp32_online else "OFFLINE"
+    update_str = last_update.strftime('%H:%M:%S UTC') if last_update else "—"
+    st.markdown(f"""
+    <div class="glass-card">
+        <div class="metric-label">📡 Device Status</div>
+        <div class="status-pill {pill_class}">{pill_dot} ESP32 {pill_text}</div>
+        <div style="margin-top:0.7rem;font-size:0.72rem;color:rgba(200,210,255,0.45);">
+            Last ping &nbsp;·&nbsp; {update_str}
+        </div>
+    </div>
     """, unsafe_allow_html=True)
-    
-    new_threshold = st.slider(
-        "Temperature Threshold (°C)",
-        0, 50,
-        st.session_state.threshold_ui,
-        label_visibility="collapsed"
-    )
-    
-    st.markdown("<br><br>", unsafe_allow_html=True)
-    btn_col, _ = st.columns([1, 4])
-    with btn_col:
-        # We hook directly to the rerender to trigger the background!
-        if st.button("Initialize Sync", use_container_width=True):
-            update_threshold(new_threshold)
-            st.session_state.threshold_ui = new_threshold
-            st.rerun()
-            
-    st.markdown("</div>", unsafe_allow_html=True)
 
+st.markdown('<div class="custom-divider"></div>', unsafe_allow_html=True)
 
-# Historical Data Section
-st.markdown("""
-<div class="section-title" style="animation-delay: 0.65s;">Historical Telemetry</div>
-""", unsafe_allow_html=True)
+# ============================================================
+# ALERT BANNER
+# ============================================================
+if temperature > threshold_cloud:
+    st.markdown(f"""
+    <div class="alert-danger">
+        ⚠️&nbsp; <strong>ALERT</strong> — Live temperature ({temperature:.1f} °C) exceeds the
+        active threshold ({threshold_cloud:.1f} °C). Immediate action recommended.
+    </div>
+    """, unsafe_allow_html=True)
+else:
+    st.markdown(f"""
+    <div class="alert-safe">
+        ✅&nbsp; System nominal — Temperature ({temperature:.1f} °C) is within the safe
+        threshold ({threshold_cloud:.1f} °C).
+    </div>
+    """, unsafe_allow_html=True)
 
-col_t, col_h = st.columns(2)
+st.markdown("<br>", unsafe_allow_html=True)
+
+# ============================================================
+# CHARTS
+# ============================================================
+st.markdown('<div class="section-heading">📈 Sensor History</div>', unsafe_allow_html=True)
+
+col_t, col_h = st.columns(2, gap="medium")
 
 with col_t:
-    st.markdown(f"""
-    <div class="ag-card" style="animation-delay: 0.75s;">
-      <div class="metric-header" style="color: {accent};"><span class="icon">📈</span> Thermal History</div>
-    """, unsafe_allow_html=True)
+    st.markdown('<div class="chart-wrap">', unsafe_allow_html=True)
+    st.markdown(
+        '<div style="font-size:0.75rem;font-weight:600;letter-spacing:1px;'
+        'text-transform:uppercase;color:rgba(200,210,255,0.5);margin-bottom:0.5rem;">'
+        '🌡️ Temperature — last 40 readings (°C)</div>',
+        unsafe_allow_html=True
+    )
     try:
         df_t = get_temperature_history()
-        st.line_chart(
-            df_t.set_index("created_at")["field1"],
-            use_container_width=True,
-            height=300,
-            color=accent
-        )
+        st.line_chart(df_t.set_index("created_at")["field1"], color="#ef5350")
     except:
-        st.warning("Telemetry stream unavailable.")
-    st.markdown("</div>", unsafe_allow_html=True)
+        st.warning("Temperature history unavailable")
+    st.markdown('</div>', unsafe_allow_html=True)
 
 with col_h:
-    st.markdown("""
-    <div class="ag-card" style="animation-delay: 0.85s;">
-      <div class="metric-header" style="color: #4895ef;"><span class="icon">📈</span> Humidity History</div>
-    """, unsafe_allow_html=True)
+    st.markdown('<div class="chart-wrap">', unsafe_allow_html=True)
+    st.markdown(
+        '<div style="font-size:0.75rem;font-weight:600;letter-spacing:1px;'
+        'text-transform:uppercase;color:rgba(200,210,255,0.5);margin-bottom:0.5rem;">'
+        '💧 Humidity — last 40 readings (%)</div>',
+        unsafe_allow_html=True
+    )
     try:
         df_h = get_humidity_history()
-        st.line_chart(
-            df_h.set_index("created_at")["field3"],
-            use_container_width=True,
-            height=300,
-            color="#4895ef"
-        )
+        st.line_chart(df_h.set_index("created_at")["field3"], color="#4fc3f7")
     except:
-        st.warning("Telemetry stream unavailable.")
-    st.markdown("</div>", unsafe_allow_html=True)
+        st.warning("Humidity history unavailable")
+    st.markdown('</div>', unsafe_allow_html=True)
+
+# ============================================================
+# FOOTER
+# ============================================================
+st.markdown("""
+<div style="text-align:center;margin-top:3rem;font-size:0.68rem;
+     color:rgba(200,210,255,0.25);letter-spacing:1.5px;text-transform:uppercase;">
+    ESP32 · ThingSpeak · Streamlit &nbsp;|&nbsp; Real-time IoT Monitoring
+</div>
+""", unsafe_allow_html=True)
