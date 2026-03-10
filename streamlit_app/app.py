@@ -148,7 +148,7 @@ def build_particles(val):
             f'color:rgba(210,235,255,0.92);'
             f'text-shadow:0 0 6px rgba(150,210,255,0.7);'
             f'pointer-events:none;'
-            f'z-index:9999;'
+            f'z-index:0;'
             f'user-select:none;'
             f'animation:snowFall {dur:.2f}s {delay:.2f}s linear infinite;'
             f'--drift:{drift:.0f}px;'
@@ -161,7 +161,7 @@ def build_particles(val):
         top      = rng.uniform(25, 100)   # vh
         w        = rng.uniform(6, 18)     # px width of grain
         h        = rng.uniform(2, 5)      # px height
-        dur      = rng.uniform(1.2, 3.5)  # s
+        dur      = rng.uniform(4.5, 9.0)  # s  (slower = more ambient)
         delay    = rng.uniform(-5, 0)     # s
         alpha    = rng.uniform(0.30, 0.75)
         hue      = rng.randint(18, 42)    # warm sandy hue
@@ -180,7 +180,7 @@ def build_particles(val):
             f'filter:blur(0.8px);'
             f'opacity:{alpha:.2f};'
             f'pointer-events:none;'
-            f'z-index:9999;'
+            f'z-index:0;'
             f'animation:sandBlast {dur:.2f}s {delay:.2f}s linear infinite;'
             f'--vy:{vy:.1f}px;'
             f'will-change:transform;'
