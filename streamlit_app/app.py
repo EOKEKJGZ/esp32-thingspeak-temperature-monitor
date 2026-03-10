@@ -1,4 +1,5 @@
 import streamlit as st
+import streamlit.components.v1 as components
 import requests
 import pandas as pd
 from datetime import datetime, timezone
@@ -55,7 +56,6 @@ try:
     temperature, last_raw = get_latest_temperature()
     humidity = get_latest_humidity()
     threshold_cloud = get_threshold()
-
     last_update = datetime.fromisoformat(last_raw.replace("Z", "+00:00"))
     esp32_online = (datetime.now(timezone.utc) - last_update).seconds < 60
 except:
@@ -71,38 +71,24 @@ if "threshold_ui" not in st.session_state:
 
 # ---------------- DYNAMIC GRADIENT (Blue → Red) ----------------
 def temp_gradient(val):
-    """
-    Maps 0–50 °C to a smooth blue → red gradient pair.
-    Low  = cool deep blue  (#050d2e → #0a1a5e)
-    High = fiery red/amber (#5e0a0a → #2e0505)
-    """
     ratio = min(max(val / 50.0, 0.0), 1.0)
-
-    # Start colour  (cool dark blue at ratio=0)
-    r1 = int(5   + ratio * 93)    # 5  → 98
-    g1 = int(13  - ratio * 13)    # 13 → 0
-    b1 = int(46  - ratio * 46)    # 46 → 0
-
-    # End colour (slightly lighter tone)
-    r2 = int(10  + ratio * 84)    # 10 → 94
-    g2 = int(26  - ratio * 26)    # 26 → 0
-    b2 = int(94  - ratio * 94)    # 94 → 0
-
+    r1 = int(5   + ratio * 93)
+    g1 = int(13  - ratio * 13)
+    b1 = int(46  - ratio * 46)
+    r2 = int(10  + ratio * 84)
+    g2 = int(26  - ratio * 26)
+    b2 = int(94  - ratio * 94)
     c1 = f"rgb({r1},{g1},{b1})"
     c2 = f"rgb({r2},{g2},{b2})"
-
-    # Accent glow used on cards etc.
     accent_r = int(30  + ratio * 195)
     accent_g = int(120 - ratio * 120)
     accent_b = int(255 - ratio * 255)
     accent   = f"rgb({accent_r},{accent_g},{accent_b})"
-
     return c1, c2, accent
 
 slider_val = st.session_state.threshold_ui
 bg1, bg2, accent_color = temp_gradient(slider_val)
 
-# Derive a readable "temperature band" label
 if slider_val < 15:
     band_label = "❄️ Cool"
     band_color = "#4fc3f7"
@@ -124,15 +110,12 @@ st.markdown(
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
-    /* ── Root & Background ─────────────────────────────── */
     html, body, [class*="stApp"] {{
         font-family: 'Inter', sans-serif;
         background: linear-gradient(145deg, {bg1} 0%, {bg2} 60%, #0a0a0a 100%) !important;
         transition: background 0.6s ease;
         color: #e8eaf6;
     }}
-
-    /* Hide Streamlit chrome */
     #MainMenu, footer, header {{ visibility: hidden; }}
     .block-container {{
         padding-top: 2rem !important;
@@ -140,11 +123,20 @@ st.markdown(
         max-width: 1200px;
     }}
 
-    /* ── Animated hero header ───────────────────────────── */
+    /* Particle canvas sits behind everything */
+    #particle-canvas {{
+        position: fixed;
+        top: 0; left: 0;
+        width: 100vw; height: 100vh;
+        pointer-events: none;
+        z-index: 0;
+    }}
+
     .hero-header {{
         text-align: center;
         padding: 2.5rem 1rem 1.5rem;
         animation: fadeSlideDown 0.7s ease both;
+        position: relative; z-index: 1;
     }}
     .hero-title {{
         font-size: 2.8rem;
@@ -163,16 +155,12 @@ st.markdown(
         letter-spacing: 2px;
         text-transform: uppercase;
     }}
-
-    /* ── Divider ────────────────────────────────────────── */
     .custom-divider {{
         height: 1px;
         background: linear-gradient(90deg, transparent, {accent_color}44, transparent);
         margin: 1.5rem 0;
         border: none;
     }}
-
-    /* ── Glassmorphism cards ────────────────────────────── */
     .glass-card {{
         background: rgba(255,255,255,0.05);
         backdrop-filter: blur(14px);
@@ -184,14 +172,13 @@ st.markdown(
                     inset 0 1px 0 rgba(255,255,255,0.08);
         transition: transform 0.25s ease, box-shadow 0.25s ease;
         animation: fadeSlideUp 0.55s ease both;
+        position: relative; z-index: 1;
     }}
     .glass-card:hover {{
         transform: translateY(-4px);
         box-shadow: 0 16px 40px rgba(0,0,0,0.55),
                     0 0 0 1px {accent_color}33;
     }}
-
-    /* ── Metric card content ────────────────────────────── */
     .metric-label {{
         font-size: 0.70rem;
         font-weight: 600;
@@ -207,12 +194,6 @@ st.markdown(
         line-height: 1;
         margin-bottom: 0.3rem;
     }}
-    .metric-icon {{
-        font-size: 1.4rem;
-        opacity: 0.85;
-    }}
-
-    /* ── Status pill ────────────────────────────────────── */
     .status-pill {{
         display: inline-flex;
         align-items: center;
@@ -227,8 +208,6 @@ st.markdown(
     }}
     .pill-online  {{ background: rgba(76,175,80,0.18);  border: 1px solid #4caf5066; color: #81c784; }}
     .pill-offline {{ background: rgba(244,67,54,0.18);  border: 1px solid #f4433666; color: #e57373; }}
-
-    /* ── Alert banners ──────────────────────────────────── */
     .alert-danger {{
         background: linear-gradient(90deg, rgba(244,67,54,0.18), rgba(244,67,54,0.05));
         border: 1px solid rgba(244,67,54,0.35);
@@ -238,6 +217,7 @@ st.markdown(
         color: #ef9a9a;
         font-weight: 600;
         animation: pulse-red 1.8s ease-in-out infinite;
+        position: relative; z-index: 1;
     }}
     .alert-safe {{
         background: linear-gradient(90deg, rgba(76,175,80,0.15), rgba(76,175,80,0.04));
@@ -247,18 +227,16 @@ st.markdown(
         padding: 1rem 1.4rem;
         color: #a5d6a7;
         font-weight: 600;
+        position: relative; z-index: 1;
     }}
-
-    /* ── Section heading ────────────────────────────────── */
     .section-heading {{
         font-size: 1.1rem;
         font-weight: 700;
         letter-spacing: 0.5px;
         color: #e8eaf6;
         margin-bottom: 0.8rem;
+        position: relative; z-index: 1;
     }}
-
-    /* ── Gradient band badge ────────────────────────────── */
     .band-badge {{
         display: inline-block;
         background: {band_color}22;
@@ -272,17 +250,14 @@ st.markdown(
         vertical-align: middle;
         margin-left: 0.6rem;
     }}
-
-    /* ── Chart wrapper ──────────────────────────────────── */
     .chart-wrap {{
         background: rgba(255,255,255,0.04);
         border: 1px solid rgba(255,255,255,0.08);
         border-radius: 16px;
         padding: 1.2rem 1rem 0.8rem;
         animation: fadeSlideUp 0.65s ease both;
+        position: relative; z-index: 1;
     }}
-
-    /* ── Streamlit widget overrides ─────────────────────── */
     div[data-testid="stSlider"] > div > div > div {{
         background: linear-gradient(90deg, #4fc3f7, {accent_color}, #ef5350) !important;
     }}
@@ -300,16 +275,11 @@ st.markdown(
         letter-spacing: 0.5px;
         transition: opacity 0.2s;
     }}
-    button[kind="primary"]:hover {{
-        opacity: 0.88 !important;
-    }}
-
-    /* ── Scrollbar ──────────────────────────────────────── */
+    button[kind="primary"]:hover {{ opacity: 0.88 !important; }}
     ::-webkit-scrollbar {{ width: 6px; }}
     ::-webkit-scrollbar-track {{ background: transparent; }}
     ::-webkit-scrollbar-thumb  {{ background: rgba(255,255,255,0.12); border-radius: 4px; }}
 
-    /* ── Keyframes ──────────────────────────────────────── */
     @keyframes fadeSlideDown {{
         from {{ opacity:0; transform:translateY(-20px); }}
         to   {{ opacity:1; transform:translateY(0);     }}
@@ -326,6 +296,174 @@ st.markdown(
     """,
     unsafe_allow_html=True,
 )
+
+# ============================================================
+# PARTICLE ENGINE  (injected via st.components so <script> works)
+# ============================================================
+# slider_val (0-50) drives particle mode:
+#   0-20  → pure snow
+#   20-35 → crossfade (mix)
+#   35-50 → pure sand
+particle_html = f"""
+<canvas id="particle-canvas"
+        style="position:fixed;top:0;left:0;width:100vw;height:100vh;
+               pointer-events:none;z-index:0;"></canvas>
+<script>
+(function() {{
+  const canvas = document.getElementById('particle-canvas');
+  if (!canvas) return;
+  const ctx    = canvas.getContext('2d');
+
+  // ── Temperature value injected from Python ──────────────
+  const TEMP = {slider_val};          // 0 – 50
+
+  // ── Blend factor: 0 = full snow, 1 = full sand ──────────
+  function blend(t) {{
+    // 0..20 → 0, 20..35 → 0..1, 35..50 → 1
+    if (t <= 20) return 0;
+    if (t >= 35) return 1;
+    return (t - 20) / 15;
+  }}
+  const MIX = blend(TEMP);   // 0 = snow, 1 = sand
+
+  // ── Resize canvas to fill viewport──────────────────────
+  function resize() {{
+    canvas.width  = window.innerWidth;
+    canvas.height = window.innerHeight;
+  }}
+  resize();
+  window.addEventListener('resize', resize);
+
+  // ── Particle count driven by temperature mix ─────────────
+  const SNOW_COUNT = Math.round(120 * (1 - MIX));
+  const SAND_COUNT = Math.round(180 * MIX);
+
+  // ── Snow flake factory ───────────────────────────────────
+  function makeSnow() {{
+    return {{
+      x:      Math.random() * canvas.width,
+      y:      Math.random() * canvas.height,
+      r:      1.5 + Math.random() * 3.5,    // radius
+      speed:  0.4 + Math.random() * 1.2,    // fall speed
+      drift:  (Math.random() - 0.5) * 0.6,  // horizontal sway
+      angle:  Math.random() * Math.PI * 2,  // wobble phase
+      wobble: 0.3 + Math.random() * 0.7,    // wobble amplitude
+      alpha:  0.55 + Math.random() * 0.45,
+      type:   'snow'
+    }};
+  }}
+
+  // ── Sand grain factory ───────────────────────────────────
+  function makeSand() {{
+    return {{
+      x:      -10 - Math.random() * 100,    // start off screen left
+      y:      canvas.height * (0.4 + Math.random() * 0.6),
+      w:      1.5 + Math.random() * 2.5,   // width
+      h:      0.8 + Math.random() * 1.2,   // height
+      speed:  2.5 + Math.random() * 4.5,   // horizontal speed
+      vy:     (Math.random() - 0.5) * 0.5, // vertical drift
+      alpha:  0.25 + Math.random() * 0.55,
+      hue:    20 + Math.random() * 25,     // sandy warm hue
+      type:   'sand'
+    }};
+  }}
+
+  // ── Build particle pool ──────────────────────────────────
+  const particles = [];
+  for (let i = 0; i < SNOW_COUNT; i++) {{
+    const p = makeSnow();
+    p.y = Math.random() * canvas.height; // distribute vertically at start
+    particles.push(p);
+  }}
+  for (let i = 0; i < SAND_COUNT; i++) {{
+    const p = makeSand();
+    p.x = Math.random() * canvas.width;  // distribute horizontally at start
+    particles.push(p);
+  }}
+
+  // ── Draw a snowflake as a 6-arm crystal ─────────────────
+  function drawSnowflake(x, y, r, alpha) {{
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.strokeStyle = 'rgba(210,235,255,1)';
+    ctx.lineWidth   = r * 0.28;
+    ctx.translate(x, y);
+    for (let a = 0; a < 6; a++) {{
+      ctx.rotate(Math.PI / 3);
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(0, -r);
+      // two tiny branches
+      ctx.moveTo(0, -r * 0.55); ctx.lineTo( r * 0.25, -r * 0.75);
+      ctx.moveTo(0, -r * 0.55); ctx.lineTo(-r * 0.25, -r * 0.75);
+      ctx.stroke();
+    }}
+    // centre dot
+    ctx.beginPath();
+    ctx.arc(0, 0, r * 0.18, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(220,240,255,0.9)';
+    ctx.fill();
+    ctx.restore();
+  }}
+
+  // ── Animation loop ───────────────────────────────────────
+  let frame = 0;
+  function animate() {{
+    requestAnimationFrame(animate);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    frame++;
+
+    particles.forEach(p => {{
+      if (p.type === 'snow') {{
+        // ── Update snowflake ──
+        p.angle += 0.018;
+        p.y     += p.speed;
+        p.x     += p.drift + Math.sin(p.angle) * p.wobble;
+
+        // Reset when below screen
+        if (p.y > canvas.height + p.r * 2) {{
+          p.y = -p.r * 2;
+          p.x = Math.random() * canvas.width;
+        }}
+        if (p.x < -20) p.x = canvas.width + 10;
+        if (p.x > canvas.width + 20) p.x = -10;
+
+        drawSnowflake(p.x, p.y, p.r, p.alpha);
+
+      }} else {{
+        // ── Update sand grain ──
+        p.x  += p.speed;
+        p.y  += p.vy;
+
+        // Reset when past right edge
+        if (p.x > canvas.width + 20) {{
+          p.x  = -10 - Math.random() * 40;
+          p.y  = canvas.height * (0.35 + Math.random() * 0.65);
+          p.vy = (Math.random() - 0.5) * 0.5;
+        }}
+
+        // Draw as a blurred ellipse
+        ctx.save();
+        ctx.globalAlpha = p.alpha;
+        const grd = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.w * 1.8);
+        grd.addColorStop(0, `hsla(${{p.hue}},70%,75%,1)`);
+        grd.addColorStop(1, `hsla(${{p.hue}},60%,55%,0)`);
+        ctx.fillStyle = grd;
+        ctx.beginPath();
+        ctx.ellipse(p.x, p.y, p.w * 2.2, p.h, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }}
+    }});
+  }}
+
+  animate();
+}})();
+</script>
+"""
+
+# Inject via components.html — height=0 so it takes no layout space
+components.html(particle_html, height=0, scrolling=False)
 
 # ============================================================
 # HEADER
@@ -355,7 +493,7 @@ new_threshold = st.slider(
     key="slider_main"
 )
 
-# Live update background as slider moves
+# Live update background + particles as slider moves
 if new_threshold != st.session_state.threshold_ui:
     st.session_state.threshold_ui = new_threshold
     st.rerun()
@@ -475,7 +613,8 @@ with col_h:
 # ============================================================
 st.markdown("""
 <div style="text-align:center;margin-top:3rem;font-size:0.68rem;
-     color:rgba(200,210,255,0.25);letter-spacing:1.5px;text-transform:uppercase;">
+     color:rgba(200,210,255,0.25);letter-spacing:1.5px;text-transform:uppercase;
+     position:relative;z-index:1;">
     ESP32 · ThingSpeak · Streamlit &nbsp;|&nbsp; Real-time IoT Monitoring
 </div>
 """, unsafe_allow_html=True)
