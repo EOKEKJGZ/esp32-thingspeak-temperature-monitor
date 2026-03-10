@@ -117,14 +117,16 @@ def build_particles(val):
     """
     rng = random.Random(val)   # deterministic per slider value = no flash on rerun
 
-    if val <= 20:
-        snow_n, sand_n = 55, 0
-    elif val <= 35:
-        mix    = (val - 20) / 15.0
-        snow_n = int(55 * (1 - mix))
-        sand_n = int(85 * mix)
+    if val <= 10:
+        snow_n, sand_n = 55, 0       # full snow
+    elif val <= 15:
+        snow_n, sand_n = 22, 0       # reduced snow
+    elif val <= 34:
+        snow_n, sand_n = 0, 0        # clear sky — no particles
+    elif val <= 40:
+        snow_n, sand_n = 0, 30       # light sand
     else:
-        snow_n, sand_n = 0, 85
+        snow_n, sand_n = 0, 85       # full sand
 
     parts = []
 
