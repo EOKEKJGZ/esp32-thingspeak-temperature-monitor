@@ -71,52 +71,40 @@ if "threshold_ui" not in st.session_state:
     st.session_state.threshold_ui = int(threshold_cloud)
 
 # ---------------- DYNAMIC ACCENT & BACKGROUND COLOR ----------------
-# We calculate a gradient state from cold (0) to hot (50)
 def compute_gradient(val):
     ratio = min(max(val / 50, 0), 1)
     
-    # Text Accent Color (Light Blue -> Amber -> Bright Coral/Red)
+    # Text Accent Color (Soft Teal -> Soft Peach -> Muted Coral)
     if ratio < 0.5:
-        # #4895ef -> #fbc3bc
-        r_acc = int(72 + ratio * 2 * (251 - 72))
-        g_acc = int(149 + ratio * 2 * (195 - 149))
-        b_acc = int(239 + ratio * 2 * (188 - 239))
+        r_acc = int(94 + ratio * 2 * (255 - 94))
+        g_acc = int(234 + ratio * 2 * (218 - 234))
+        b_acc = int(212 + ratio * 2 * (185 - 212))
     else:
-        # #fbc3bc -> #ef233c
         r2 = (ratio - 0.5) * 2
-        r_acc = int(251 + r2 * (239 - 251))
-        g_acc = int(195 - r2 * (35 - 195))
-        b_acc = int(188 - r2 * (60 - 188))
+        r_acc = int(255 + r2 * (248 - 255))
+        g_acc = int(218 - r2 * (113 - 218))
+        b_acc = int(185 - r2 * (113 - 185))
         
     accent_hex = f"#{r_acc:02x}{g_acc:02x}{b_acc:02x}"
     
-    # Background Ambient Color (Deep Indigo -> Deep Orange)
-    if ratio < 0.5:
-        r_bg = int(10 + ratio * 2 * (40 - 10))
-        g_bg = int(15 + ratio * 2 * (20 - 15))
-        b_bg = int(35 + ratio * 2 * (15 - 35))
-    else:
-        r2 = (ratio - 0.5) * 2
-        r_bg = int(40 + r2 * (60 - 40))
-        g_bg = int(20 - r2 * 10)
-        b_bg = int(15 - r2 * 5)
+    # Premium Soothing Background Base (Deep Navy / Midnight Space)
+    bg_color = "#080b12"
         
-    return accent_hex, f"#{r_bg:02x}{g_bg:02x}{b_bg:02x}"
+    return accent_hex, bg_color
 
-# We use the user's slider value to dynamically drive the whole background and accents!
 current_ui_temp = st.session_state.threshold_ui
 accent, bg_color = compute_gradient(current_ui_temp)
 
 alert_mode = temperature > threshold_cloud
 
-glow = "rgba(239, 35, 60, 0.4)" if alert_mode else "rgba(72, 149, 239, 0.3)"
-banner_bg = "rgba(239, 35, 60, 0.12)" if alert_mode else "rgba(72, 149, 239, 0.08)"
-banner_border = "#ef233c" if alert_mode else "#4895ef"
+glow = "rgba(248, 113, 113, 0.4)" if alert_mode else "rgba(94, 234, 212, 0.3)"
+banner_bg = "rgba(248, 113, 113, 0.12)" if alert_mode else "rgba(94, 234, 212, 0.08)"
+banner_border = "#f87171" if alert_mode else "#5eead4"
 banner_icon = "⚠️" if alert_mode else "✨"
-banner_text = "Critical Environment Alert: Threshold Exceeded." if alert_mode else "Environment is operating perfectly."
+banner_text = "Critical Environment Alert: Threshold Exceeded." if alert_mode else "Environment is operating seamlessly."
 
-status_bg = "rgba(72, 149, 239, 0.15)" if esp32_online else "rgba(239, 35, 60, 0.15)"
-status_dot = "#4895ef" if esp32_online else "#ef233c"
+status_bg = "rgba(94, 234, 212, 0.15)" if esp32_online else "rgba(248, 113, 113, 0.15)"
+status_dot = "#5eead4" if esp32_online else "#f87171"
 status_text = "ONLINE" if esp32_online else "OFFLINE"
 
 # ---------------- INJECT CSS ----------------
@@ -128,31 +116,29 @@ st.markdown(f"""
 * {{ box-sizing: border-box; }}
 
 /* 
-  ANTIGRAVITY PREMIUM BACKGROUND 
-  The base background dynamically shifts based on the threshold scale.
-  A subtle radial noise map adds extreme premium depth.
+  PREMIUM SOOTHING BACKGROUND 
+  Soft, glowing orbs on a deep midnight canvas.
 */
 html, body, .stApp {{
     background-color: {bg_color} !important;
     background-image: 
-        radial-gradient(ellipse at 15% 15%, rgba(255, 255, 255, 0.04) 0%, transparent 60%),
-        radial-gradient(ellipse at 85% 85%, {accent}15 0%, transparent 60%),
-        radial-gradient(ellipse at 50% 120%, {accent}0a 0%, transparent 70%);
+        radial-gradient(circle at 10% 40%, rgba(45, 212, 191, 0.05), transparent 45%),
+        radial-gradient(circle at 90% 20%, rgba(139, 92, 246, 0.06), transparent 50%),
+        radial-gradient(circle at 50% 90%, rgba(56, 189, 248, 0.04), transparent 60%);
     background-attachment: fixed;
-    color: #ffffff;
+    color: #e2e8f0;
     font-family: 'Inter', sans-serif;
-    transition: background-color 0.8s ease-in-out, background-image 0.8s ease-in-out;
 }}
 
-/* Grain texture overlay (True Antigravity style) */
+/* Elegant light noise */
 .stApp::before {{
     content: "";
     position: fixed;
     top: 0; left: 0; width: 100vw; height: 100vh;
-    opacity: 0.06;
+    opacity: 0.025;
     z-index: 0;
     pointer-events: none;
-    background: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+    background: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
 }}
 
 /* Hide default streamlit */
@@ -178,23 +164,23 @@ html, body, .stApp {{
     100% {{ box-shadow: 0 0 10px {status_dot}40; }}
 }}
 
-/* Antigravity Glass Cards */
+/* Premium Glass Cards */
 .ag-card {{
-    background: linear-gradient(145deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.01));
-    border: 1px solid rgba(255, 255, 255, 0.05);
-    backdrop-filter: blur(24px) saturate(150%);
-    -webkit-backdrop-filter: blur(24px) saturate(150%);
+    background: linear-gradient(135deg, rgba(30, 41, 59, 0.4), rgba(15, 23, 42, 0.6));
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    backdrop-filter: blur(20px) saturate(120%);
+    -webkit-backdrop-filter: blur(20px) saturate(120%);
     border-radius: 24px;
     padding: 2rem;
-    box-shadow: 0 15px 35px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.1);
-    transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.4s ease, border-color 0.4s ease;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.05);
+    transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.4s ease, border-color 0.4s ease;
     animation: fadeClipIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
     opacity: 0;
 }}
 .ag-card:hover {{
-    transform: translateY(-5px) scale(1.01);
-    box-shadow: 0 30px 60px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.2);
-    border-color: rgba(255, 255, 255, 0.15);
+    transform: translateY(-4px);
+    box-shadow: 0 20px 50px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.08);
+    border-color: rgba(255, 255, 255, 0.1);
 }}
 
 /* Header */
