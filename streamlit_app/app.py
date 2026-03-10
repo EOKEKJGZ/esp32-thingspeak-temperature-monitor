@@ -10,8 +10,8 @@ WRITE_API_KEY = "89Q4XRJ8U1GJGYKF"
 # ----------------------------------------
 
 st.set_page_config(
-    page_title="ESP32 Environment Monitor",
-    page_icon="🌡️",
+    page_title="Antigravity Environment Monitor",
+    page_icon="💠",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
@@ -70,125 +70,163 @@ except:
 if "threshold_ui" not in st.session_state:
     st.session_state.threshold_ui = int(threshold_cloud)
 
-# ---------------- DYNAMIC ACCENT COLOR ----------------
-def temp_accent(val):
-    """Returns an accent color from cool blue -> amber -> red based on temperature."""
+# ---------------- DYNAMIC ACCENT & BACKGROUND COLOR ----------------
+# We calculate a gradient state from cold (0) to hot (50)
+def compute_gradient(val):
     ratio = min(max(val / 50, 0), 1)
+    
+    # Text Accent Color (Light Blue -> Amber -> Bright Coral/Red)
     if ratio < 0.5:
-        # cool blue -> warm amber
-        r = int(56  + ratio * 2 * (251 - 56))
-        g = int(189 + ratio * 2 * (191 - 189))
-        b = int(248 - ratio * 2 * (248 - 36))
+        # #4895ef -> #fbc3bc
+        r_acc = int(72 + ratio * 2 * (251 - 72))
+        g_acc = int(149 + ratio * 2 * (195 - 149))
+        b_acc = int(239 + ratio * 2 * (188 - 239))
     else:
-        # amber -> red
+        # #fbc3bc -> #ef233c
         r2 = (ratio - 0.5) * 2
-        r = int(251 + r2 * (239 - 251))
-        g = int(191 - r2 * 191)
-        b = int(36  - r2 * 36)
-    return f"rgb({r},{g},{b})"
+        r_acc = int(251 + r2 * (239 - 251))
+        g_acc = int(195 - r2 * (35 - 195))
+        b_acc = int(188 - r2 * (60 - 188))
+        
+    accent_hex = f"#{r_acc:02x}{g_acc:02x}{b_acc:02x}"
+    
+    # Background Ambient Color (Deep Indigo -> Deep Orange)
+    if ratio < 0.5:
+        r_bg = int(10 + ratio * 2 * (40 - 10))
+        g_bg = int(15 + ratio * 2 * (20 - 15))
+        b_bg = int(35 + ratio * 2 * (15 - 35))
+    else:
+        r2 = (ratio - 0.5) * 2
+        r_bg = int(40 + r2 * (60 - 40))
+        g_bg = int(20 - r2 * 10)
+        b_bg = int(15 - r2 * 5)
+        
+    return accent_hex, f"#{r_bg:02x}{g_bg:02x}{b_bg:02x}"
 
-accent = temp_accent(temperature)
+# We use the user's slider value to dynamically drive the whole background and accents!
+current_ui_temp = st.session_state.threshold_ui
+accent, bg_color = compute_gradient(current_ui_temp)
+
 alert_mode = temperature > threshold_cloud
 
-glow = "rgba(239,68,68,0.4)" if alert_mode else "rgba(34,197,94,0.3)"
-banner_bg = "rgba(239,68,68,0.15)" if alert_mode else "rgba(34,197,94,0.1)"
-banner_border = "#ef4444" if alert_mode else "#22c55e"
-banner_icon = "⚠️" if alert_mode else "✅"
-banner_text = "Temperature exceeds threshold — check environment!" if alert_mode else "All readings within safe operating range."
+glow = "rgba(239, 35, 60, 0.4)" if alert_mode else "rgba(72, 149, 239, 0.3)"
+banner_bg = "rgba(239, 35, 60, 0.12)" if alert_mode else "rgba(72, 149, 239, 0.08)"
+banner_border = "#ef233c" if alert_mode else "#4895ef"
+banner_icon = "⚠️" if alert_mode else "✨"
+banner_text = "Critical Environment Alert: Threshold Exceeded." if alert_mode else "Environment is operating perfectly."
 
-status_bg = "rgba(34,197,94,0.15)" if esp32_online else "rgba(239,68,68,0.15)"
-status_dot = "#22c55e" if esp32_online else "#ef4444"
+status_bg = "rgba(72, 149, 239, 0.15)" if esp32_online else "rgba(239, 35, 60, 0.15)"
+status_dot = "#4895ef" if esp32_online else "#ef233c"
 status_text = "ONLINE" if esp32_online else "OFFLINE"
 
 # ---------------- INJECT CSS ----------------
 st.markdown(f"""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
 
 /* Reset */
 * {{ box-sizing: border-box; }}
 
+/* 
+  ANTIGRAVITY PREMIUM BACKGROUND 
+  The base background dynamically shifts based on the threshold scale.
+  A subtle radial noise map adds extreme premium depth.
+*/
 html, body, .stApp {{
-    background-color: #06090e !important;
+    background-color: {bg_color} !important;
     background-image: 
-        radial-gradient(at 0% 0%, rgba(56, 189, 248, 0.08) 0px, transparent 50%),
-        radial-gradient(at 100% 0%, rgba(168, 85, 247, 0.08) 0px, transparent 50%),
-        radial-gradient(at 100% 100%, rgba(251, 191, 36, 0.05) 0px, transparent 50%),
-        radial-gradient(at 0% 100%, rgba(56, 189, 248, 0.04) 0px, transparent 50%);
+        radial-gradient(ellipse at 15% 15%, rgba(255, 255, 255, 0.04) 0%, transparent 60%),
+        radial-gradient(ellipse at 85% 85%, {accent}15 0%, transparent 60%),
+        radial-gradient(ellipse at 50% 120%, {accent}0a 0%, transparent 70%);
     background-attachment: fixed;
-    color: #f8fafc;
-    font-family: 'Plus Jakarta Sans', sans-serif;
+    color: #ffffff;
+    font-family: 'Inter', sans-serif;
+    transition: background-color 0.8s ease-in-out, background-image 0.8s ease-in-out;
+}}
+
+/* Grain texture overlay (True Antigravity style) */
+.stApp::before {{
+    content: "";
+    position: fixed;
+    top: 0; left: 0; width: 100vw; height: 100vh;
+    opacity: 0.06;
+    z-index: 0;
+    pointer-events: none;
+    background: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
 }}
 
 /* Hide default streamlit */
 #MainMenu, footer, header {{ visibility: hidden; }}
 .block-container {{
-    padding: 2.5rem !important;
-    max-width: 1200px !important;
+    padding: 3rem 4rem !important;
+    max-width: 1400px !important;
+    z-index: 1;
+    position: relative;
 }}
 
 /* Typography */
-.space-font {{ font-family: 'Space Grotesk', sans-serif; }}
+.mono-font {{ font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums; }}
 
 /* Animations */
-@keyframes fadeInUp {{
-    0% {{ opacity: 0; transform: translateY(15px); }}
-    100% {{ opacity: 1; transform: translateY(0); }}
+@keyframes fadeClipIn {{
+    0% {{ opacity: 0; clip-path: polygon(0 100%, 100% 100%, 100% 100%, 0 100%); transform: translateY(20px); }}
+    100% {{ opacity: 1; clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%); transform: translateY(0); }}
 }}
 @keyframes pulseGlow {{
     0% {{ box-shadow: 0 0 10px {status_dot}40; }}
-    50% {{ box-shadow: 0 0 20px {status_dot}80; }}
+    50% {{ box-shadow: 0 0 25px {status_dot}90; }}
     100% {{ box-shadow: 0 0 10px {status_dot}40; }}
 }}
 
-/* Card Details */
-.glass-card {{
-    background: rgba(255, 255, 255, 0.02);
-    border: 1px solid rgba(255, 255, 255, 0.06);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border-radius: 20px;
-    padding: 1.5rem;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.15);
-    transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
-    animation: fadeInUp 0.6s ease-out forwards;
+/* Antigravity Glass Cards */
+.ag-card {{
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.01));
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(24px) saturate(150%);
+    -webkit-backdrop-filter: blur(24px) saturate(150%);
+    border-radius: 24px;
+    padding: 2rem;
+    box-shadow: 0 15px 35px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.1);
+    transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.4s ease, border-color 0.4s ease;
+    animation: fadeClipIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
     opacity: 0;
 }}
-.glass-card:hover {{
-    transform: translateY(-4px);
-    box-shadow: 0 10px 30px rgba(0,0,0,0.25);
-    border-color: rgba(255, 255, 255, 0.1);
+.ag-card:hover {{
+    transform: translateY(-5px) scale(1.01);
+    box-shadow: 0 30px 60px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.2);
+    border-color: rgba(255, 255, 255, 0.15);
 }}
 
 /* Header */
 .dashboard-header {{
+    position: relative;
+    padding-bottom: 2.5rem;
+    margin-bottom: 3rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
     display: flex;
     justify-content: space-between;
-    align-items: center;
-    padding: 1.5rem 2rem;
-    background: rgba(10, 15, 28, 0.6);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 20px;
-    margin-bottom: 2rem;
-    backdrop-filter: blur(20px);
-    animation: fadeInUp 0.4s ease-out forwards;
+    align-items: flex-end;
+    animation: fadeClipIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }}
-.header-title-wrapper {{ display: flex; flex-direction: column; gap: 4px; }}
+.header-title-wrapper {{ display: flex; flex-direction: column; gap: 8px; }}
 .header-title {{
-    font-size: 2rem;
-    font-weight: 700;
-    letter-spacing: -0.02em;
-    background: linear-gradient(90deg, #f8fafc, #94a3b8);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    line-height: 1.2;
+    font-size: 2.5rem;
+    font-weight: 500;
+    letter-spacing: -0.04em;
+    color: #ffffff;
+    line-height: 1.1;
+}}
+.header-title span {{
+    color: {accent};
+    font-weight: 600;
+    transition: color 0.8s ease;
 }}
 .header-subtitle {{
-    font-size: 0.85rem;
-    color: #64748b;
-    font-weight: 500;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
+    font-size: 0.95rem;
+    color: #a1a1aa;
+    font-weight: 400;
+    letter-spacing: 0.02em;
+    font-family: 'JetBrains Mono', monospace;
 }}
 
 /* Status */
@@ -196,141 +234,155 @@ html, body, .stApp {{
     display: flex;
     flex-direction: column;
     align-items: flex-end;
-    gap: 8px;
+    gap: 12px;
 }}
 .status-indicator {{
     display: inline-flex;
     align-items: center;
-    gap: 8px;
-    padding: 0.5rem 1.2rem;
+    gap: 10px;
+    padding: 0.6rem 1.4rem;
     border-radius: 99px;
     background: {status_bg};
-    border: 1px solid {status_dot}33;
-    font-size: 0.8rem;
-    font-weight: 600;
-    color: {status_dot};
+    border: 1px solid {status_dot}40;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: #fff;
+    font-family: 'JetBrains Mono', monospace;
     letter-spacing: 0.05em;
 }}
 .status-dot-inner {{
-    width: 8px; height: 8px;
+    width: 6px; height: 6px;
     border-radius: 50%;
     background: {status_dot};
+    box-shadow: 0 0 12px {status_dot};
     animation: pulseGlow 2s infinite;
 }}
 .sync-time {{
     font-size: 0.75rem;
-    color: #64748b;
-    font-family: 'Space Grotesk', sans-serif;
+    color: #71717a;
+    font-family: 'JetBrains Mono', monospace;
 }}
 
 /* Metrics */
 .metric-header {{
     display: flex;
     align-items: center;
-    gap: 8px;
-    font-size: 0.85rem;
-    font-weight: 600;
-    color: #94a3b8;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    margin-bottom: 1.2rem;
+    gap: 10px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: #a1a1aa;
+    letter-spacing: 0.01em;
+    margin-bottom: 1.5rem;
 }}
+.metric-header .icon {{ font-size: 1.2rem; }}
 .metric-value {{
-    font-size: 3.2rem;
-    font-weight: 700;
-    color: #f8fafc;
+    font-size: 3.8rem;
+    font-weight: 300;
+    color: #ffffff;
     line-height: 1;
-    margin-bottom: 0.8rem;
+    margin-bottom: 1rem;
     display: flex;
     align-items: baseline;
-    gap: 6px;
+    gap: 8px;
+    letter-spacing: -0.05em;
 }}
 .metric-unit {{
-    font-size: 1.2rem;
-    font-weight: 500;
-    color: #64748b;
+    font-size: 1.25rem;
+    font-weight: 400;
+    color: #71717a;
+    font-family: 'Inter', sans-serif;
+    letter-spacing: 0;
 }}
 .metric-footer {{
-    font-size: 0.8rem;
-    color: #475569;
+    font-size: 0.85rem;
+    color: #52525b;
+    font-family: 'JetBrains Mono', monospace;
 }}
 
 /* Alert Banner */
 .alert-container {{
     display: flex;
     align-items: center;
-    gap: 1.2rem;
-    padding: 1.2rem 1.5rem;
-    border-radius: 16px;
+    gap: 1.5rem;
+    padding: 1.25rem 2rem;
+    border-radius: 100px;
     background: {banner_bg};
-    border: 1px solid {banner_border}40;
-    margin-bottom: 2.5rem;
-    box-shadow: 0 4px 20px {glow};
-    animation: fadeInUp 0.5s ease-out forwards;
+    border: 1px solid {banner_border}50;
+    margin-bottom: 3.5rem;
+    box-shadow: 0 8px 30px {glow};
+    animation: fadeClipIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    backdrop-filter: blur(12px);
 }}
 .alert-icon {{
-    font-size: 1.4rem;
+    font-size: 1.2rem;
+    background: {banner_border}20;
+    width: 32px; height: 32px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 50%;
 }}
 .alert-text {{
     font-size: 0.95rem;
     font-weight: 500;
-    color: {banner_border};
+    color: #fff;
+    letter-spacing: 0.02em;
 }}
 
 /* Slider overrides */
 .stSlider > div > div > div > div {{
     background: {accent} !important;
+    transition: background-color 0.8s ease;
 }}
-.stSlider [data-testid="stThumbValue"], .stSlider [data-testid="stTickBarMin"], .stSlider [data-testid="stTickBarMax"] {{
-    font-family: 'Space Grotesk', sans-serif !important;
-    color: #f8fafc !important;
+.stSlider [data-testid="stThumbValue"] {{
+    font-family: 'JetBrains Mono', monospace !important;
+    color: #fff !important;
+    background: rgba(255,255,255,0.1) !important;
+    backdrop-filter: blur(10px) !important;
+    border: 1px solid rgba(255,255,255,0.2) !important;
     font-size: 0.85rem !important;
+    border-radius: 6px !important;
 }}
 
 /* Button overrides */
 .stButton > button {{
-    background: rgba(255, 255, 255, 0.05) !important;
-    border: 1px solid rgba(255, 255, 255, 0.15) !important;
-    color: #f8fafc !important;
-    border-radius: 12px !important;
-    font-family: 'Plus Jakarta Sans', sans-serif !important;
-    font-weight: 600 !important;
-    transition: all 0.3s ease !important;
-    padding: 0.6rem 1.5rem !important;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.1) !important;
+    background: {accent} !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+    color: #000 !important;
+    border-radius: 100px !important;
+    font-family: 'Inter', sans-serif !important;
+    font-weight: 500 !important;
+    transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    padding: 0.75rem 2rem !important;
+    box-shadow: 0 8px 25px {accent}40 !important;
+    font-size: 0.9rem !important;
+    letter-spacing: 0.02em !important;
 }}
 .stButton > button:hover {{
-    background: {accent}22 !important;
-    border-color: {accent}88 !important;
-    color: {accent} !important;
-    transform: translateY(-2px) !important;
-    box-shadow: 0 6px 15px {accent}30 !important;
+    transform: translateY(-2px) scale(1.02) !important;
+    box-shadow: 0 12px 35px {accent}60, inset 0 0 0 1px rgba(255,255,255,0.4) !important;
+    filter: brightness(1.1);
 }}
 .stButton > button:active {{
-    transform: translateY(0) !important;
+    transform: translateY(1px) scale(0.98) !important;
+    box-shadow: 0 4px 15px {accent}20 !important;
 }}
 
-/* Divider */
-.section-divider {{
-    margin: 3rem 0 1.5rem 0;
+/* Section Titles */
+.section-title {{
+    font-size: 1rem;
+    font-weight: 500;
+    color: #fff;
+    margin: 4rem 0 2rem 0;
     display: flex;
     align-items: center;
-    gap: 1rem;
-    animation: fadeInUp 0.7s ease-out forwards;
+    gap: 1.5rem;
+    animation: fadeClipIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
     opacity: 0;
 }}
-.section-divider::after {{
+.section-title::after {{
     content: '';
     flex: 1;
     height: 1px;
     background: linear-gradient(90deg, rgba(255,255,255,0.1), transparent);
-}}
-.section-title {{
-    font-size: 1.1rem;
-    font-weight: 600;
-    color: #e2e8f0;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
 }}
 </style>
 """, unsafe_allow_html=True)
@@ -344,15 +396,15 @@ last_str = last_update.strftime('%H:%M:%S UTC') if last_update else "—"
 st.markdown(f"""
 <div class="dashboard-header">
   <div class="header-title-wrapper">
-    <div class="header-title">ESP32 <span style="color: {accent};">Environment</span></div>
-    <div class="header-subtitle">Live Sensor Analytics Dashboard</div>
+    <div class="header-title">Antigravity <span>Nexus</span></div>
+    <div class="header-subtitle">// SENSOR ANALYTICS NODE V2</div>
   </div>
   <div class="header-status-wrapper">
     <div class="status-indicator">
       <div class="status-dot-inner"></div>
-      {status_text}
+      SYS.{status_text}
     </div>
-    <div class="sync-time">Last Sync: {last_str}</div>
+    <div class="sync-time">REF: {last_str}</div>
   </div>
 </div>
 """, unsafe_allow_html=True)
@@ -367,52 +419,51 @@ st.markdown(f"""
 
 # Metrics Section
 st.markdown("""
-<div class="section-divider" style="animation-delay: 0.1s;">
-  <span class="section-title">Live Metrics</span>
-</div>
+<div class="section-title" style="animation-delay: 0.1s;">Live Telemetry</div>
 """, unsafe_allow_html=True)
 
 col1, col2, col3 = st.columns(3)
 
 with col1:
     st.markdown(f"""
-    <div class="glass-card" style="animation-delay: 0.2s; border-top: 3px solid {accent};">
-      <div class="metric-header">🌡️ Temperature</div>
-      <div class="metric-value space-font">{temperature:.1f} <span class="metric-unit">°C</span></div>
-      <div class="metric-footer">Alarm Threshold: {threshold_cloud:.1f} °C</div>
+    <div class="ag-card" style="animation-delay: 0.15s; position: relative; overflow: hidden;">
+      <div style="position: absolute; top:0; left:0; right:0; height: 3px; background: {accent};"></div>
+      <div class="metric-header"><span class="icon">🌡️</span> Core Temperature</div>
+      <div class="metric-value mono-font">{temperature:.1f} <span class="metric-unit">°C</span></div>
+      <div class="metric-footer">Alarm Setpoint: {threshold_cloud:.1f}°C</div>
     </div>
     """, unsafe_allow_html=True)
 
 with col2:
     st.markdown(f"""
-    <div class="glass-card" style="animation-delay: 0.3s; border-top: 3px solid #38bdf8;">
-      <div class="metric-header">💧 Humidity</div>
-      <div class="metric-value space-font">{humidity:.1f} <span class="metric-unit">%</span></div>
-      <div class="metric-footer">Relative Humidity</div>
+    <div class="ag-card" style="animation-delay: 0.25s; position: relative; overflow: hidden;">
+      <div style="position: absolute; top:0; left:0; right:0; height: 3px; background: #4895ef;"></div>
+      <div class="metric-header"><span class="icon">💧</span> Ambient Humidity</div>
+      <div class="metric-value mono-font">{humidity:.1f} <span class="metric-unit">%</span></div>
+      <div class="metric-footer">Relative Saturation</div>
     </div>
     """, unsafe_allow_html=True)
 
 with col3:
     st.markdown(f"""
-    <div class="glass-card" style="animation-delay: 0.4s; border-top: 3px solid #a78bfa;">
-      <div class="metric-header">⚙️ Active Threshold</div>
-      <div class="metric-value space-font">{threshold_cloud:.1f} <span class="metric-unit">°C</span></div>
-      <div class="metric-footer">ThingSpeak Cloud Value</div>
+    <div class="ag-card" style="animation-delay: 0.35s; position: relative; overflow: hidden;">
+      <div style="position: absolute; top:0; left:0; right:0; height: 3px; background: #a1a1aa;"></div>
+      <div class="metric-header"><span class="icon">⚙️</span> Configured Threshold</div>
+      <div class="metric-value mono-font">{threshold_cloud:.1f} <span class="metric-unit">°C</span></div>
+      <div class="metric-footer">Cloud Sync Registry</div>
     </div>
     """, unsafe_allow_html=True)
 
 
 # Configuration Section
 st.markdown("""
-<div class="section-divider" style="animation-delay: 0.5s;">
-  <span class="section-title">Device Configuration</span>
-</div>
+<div class="section-title" style="animation-delay: 0.45s;">System Configuration</div>
 """, unsafe_allow_html=True)
 
 with st.container():
     st.markdown("""
-    <div class="glass-card" style="animation-delay: 0.6s; padding-bottom: 2rem;">
-      <div class="metric-header" style="margin-bottom: 2rem;">🎛️ Adjust Alert Threshold</div>
+    <div class="ag-card" style="animation-delay: 0.55s; padding-bottom: 2.5rem;">
+      <div class="metric-header" style="margin-bottom: 2.5rem; font-size: 1rem;"><span class="icon">🎛️</span> Dynamic Threshold Control</div>
     """, unsafe_allow_html=True)
     
     new_threshold = st.slider(
@@ -422,10 +473,11 @@ with st.container():
         label_visibility="collapsed"
     )
     
-    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown("<br><br>", unsafe_allow_html=True)
     btn_col, _ = st.columns([1, 4])
     with btn_col:
-        if st.button("⚡ Sync to Cloud", use_container_width=True):
+        # We hook directly to the rerender to trigger the background!
+        if st.button("Initialize Sync", use_container_width=True):
             update_threshold(new_threshold)
             st.session_state.threshold_ui = new_threshold
             st.rerun()
@@ -435,54 +487,41 @@ with st.container():
 
 # Historical Data Section
 st.markdown("""
-<div class="section-divider" style="animation-delay: 0.7s;">
-  <span class="section-title">Historical Trends</span>
-</div>
+<div class="section-title" style="animation-delay: 0.65s;">Historical Telemetry</div>
 """, unsafe_allow_html=True)
 
 col_t, col_h = st.columns(2)
 
 with col_t:
     st.markdown(f"""
-    <div class="glass-card" style="animation-delay: 0.8s;">
-      <div class="metric-header" style="color: {accent};">📈 Temperature History</div>
+    <div class="ag-card" style="animation-delay: 0.75s;">
+      <div class="metric-header" style="color: {accent};"><span class="icon">📈</span> Thermal History</div>
     """, unsafe_allow_html=True)
     try:
         df_t = get_temperature_history()
         st.line_chart(
             df_t.set_index("created_at")["field1"],
             use_container_width=True,
-            height=280,
+            height=300,
             color=accent
         )
     except:
-        st.warning("Temperature history unavailable")
+        st.warning("Telemetry stream unavailable.")
     st.markdown("</div>", unsafe_allow_html=True)
 
 with col_h:
     st.markdown("""
-    <div class="glass-card" style="animation-delay: 0.9s;">
-      <div class="metric-header" style="color: #38bdf8;">📈 Humidity History</div>
+    <div class="ag-card" style="animation-delay: 0.85s;">
+      <div class="metric-header" style="color: #4895ef;"><span class="icon">📈</span> Humidity History</div>
     """, unsafe_allow_html=True)
     try:
         df_h = get_humidity_history()
         st.line_chart(
             df_h.set_index("created_at")["field3"],
             use_container_width=True,
-            height=280,
-            color="#38bdf8"
+            height=300,
+            color="#4895ef"
         )
     except:
-        st.warning("Humidity history unavailable")
+        st.warning("Telemetry stream unavailable.")
     st.markdown("</div>", unsafe_allow_html=True)
-
-
-
-
-
-
-
-
-
-
-
