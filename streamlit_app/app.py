@@ -11,7 +11,7 @@ WRITE_API_KEY = "89Q4XRJ8U1GJGYKF"
 
 st.set_page_config(
     page_title="ESP32 Environment Monitor",
-    page_icon="ðŸŒ¡ï¸",
+    page_icon="🌡️",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
@@ -72,15 +72,15 @@ if "threshold_ui" not in st.session_state:
 
 # ---------------- DYNAMIC ACCENT COLOR ----------------
 def temp_accent(val):
-    """Returns an accent color from cool blue â†’ amber â†’ red based on temperature."""
+    """Returns an accent color from cool blue -> amber -> red based on temperature."""
     ratio = min(max(val / 50, 0), 1)
     if ratio < 0.5:
-        # cool blue â†’ warm amber
+        # cool blue -> warm amber
         r = int(56  + ratio * 2 * (251 - 56))
         g = int(189 + ratio * 2 * (191 - 189))
         b = int(248 - ratio * 2 * (248 - 36))
     else:
-        # amber â†’ red
+        # amber -> red
         r2 = (ratio - 0.5) * 2
         r = int(251 + r2 * (239 - 251))
         g = int(191 - r2 * 191)
@@ -90,507 +90,369 @@ def temp_accent(val):
 accent = temp_accent(temperature)
 alert_mode = temperature > threshold_cloud
 
-# â”€â”€ glow color for alert banner
-glow = "rgba(239,68,68,0.35)" if alert_mode else "rgba(34,197,94,0.25)"
-banner_bg = "rgba(239,68,68,0.12)" if alert_mode else "rgba(34,197,94,0.08)"
+glow = "rgba(239,68,68,0.4)" if alert_mode else "rgba(34,197,94,0.3)"
+banner_bg = "rgba(239,68,68,0.15)" if alert_mode else "rgba(34,197,94,0.1)"
 banner_border = "#ef4444" if alert_mode else "#22c55e"
-banner_icon = "âš ï¸" if alert_mode else "âœ…"
-banner_text = "Temperature exceeds threshold â€” check your environment!" if alert_mode else "All readings within safe operating range."
-banner_label = "ALERT" if alert_mode else "NOMINAL"
+banner_icon = "⚠️" if alert_mode else "✅"
+banner_text = "Temperature exceeds threshold — check environment!" if alert_mode else "All readings within safe operating range."
 
-# â”€â”€ status pill
-status_bg   = "rgba(34,197,94,0.15)"  if esp32_online else "rgba(239,68,68,0.15)"
-status_dot  = "#22c55e"               if esp32_online else "#ef4444"
-status_text = "ONLINE"                if esp32_online else "OFFLINE"
+status_bg = "rgba(34,197,94,0.15)" if esp32_online else "rgba(239,68,68,0.15)"
+status_dot = "#22c55e" if esp32_online else "#ef4444"
+status_text = "ONLINE" if esp32_online else "OFFLINE"
 
-# â”€â”€ threshold ring gradient
-thresh_pct = int((st.session_state.threshold_ui / 50) * 100)
-
-# â”€â”€ inject CSS
+# ---------------- INJECT CSS ----------------
 st.markdown(f"""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Outfit:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap');
 
-/* â”€â”€ reset & base â”€â”€ */
-*, *::before, *::after {{ box-sizing: border-box; margin: 0; padding: 0; }}
+/* Reset */
+* {{ box-sizing: border-box; }}
 
 html, body, .stApp {{
-    background: #080c14 !important;
-    color: #e2e8f0;
-    font-family: 'Outfit', sans-serif;
+    background-color: #06090e !important;
+    background-image: 
+        radial-gradient(at 0% 0%, rgba(56, 189, 248, 0.08) 0px, transparent 50%),
+        radial-gradient(at 100% 0%, rgba(168, 85, 247, 0.08) 0px, transparent 50%),
+        radial-gradient(at 100% 100%, rgba(251, 191, 36, 0.05) 0px, transparent 50%),
+        radial-gradient(at 0% 100%, rgba(56, 189, 248, 0.04) 0px, transparent 50%);
+    background-attachment: fixed;
+    color: #f8fafc;
+    font-family: 'Plus Jakarta Sans', sans-serif;
 }}
 
-/* â”€â”€ hide default streamlit chrome â”€â”€ */
+/* Hide default streamlit */
 #MainMenu, footer, header {{ visibility: hidden; }}
 .block-container {{
-    padding: 2rem 2.5rem 3rem !important;
-    max-width: 1400px !important;
+    padding: 2.5rem !important;
+    max-width: 1200px !important;
 }}
 
-/* â”€â”€ animated mesh background â”€â”€ */
-.stApp::before {{
-    content: '';
-    position: fixed;
-    inset: 0;
-    background:
-        radial-gradient(ellipse 80% 60% at 10% 15%,  rgba(56,189,248,0.07) 0%, transparent 60%),
-        radial-gradient(ellipse 60% 50% at 90% 80%,  rgba(168,85,247,0.06) 0%, transparent 55%),
-        radial-gradient(ellipse 50% 40% at 55% 50%,  rgba(251,191,36,0.04) 0%, transparent 60%);
-    pointer-events: none;
-    z-index: 0;
-    animation: meshShift 12s ease-in-out infinite alternate;
+/* Typography */
+.space-font {{ font-family: 'Space Grotesk', sans-serif; }}
+
+/* Animations */
+@keyframes fadeInUp {{
+    0% {{ opacity: 0; transform: translateY(15px); }}
+    100% {{ opacity: 1; transform: translateY(0); }}
 }}
-@keyframes meshShift {{
-    0%   {{ opacity: 0.7; transform: scale(1);   }}
-    100% {{ opacity: 1.0; transform: scale(1.04); }}
+@keyframes pulseGlow {{
+    0% {{ box-shadow: 0 0 10px {status_dot}40; }}
+    50% {{ box-shadow: 0 0 20px {status_dot}80; }}
+    100% {{ box-shadow: 0 0 10px {status_dot}40; }}
 }}
 
-/* â”€â”€ grid noise texture â”€â”€ */
-.stApp::after {{
-    content: '';
-    position: fixed;
-    inset: 0;
-    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
-    pointer-events: none;
-    z-index: 0;
-    opacity: 0.4;
-}}
-
-/* â”€â”€ main content above overlays â”€â”€ */
-.main .block-container > * {{ position: relative; z-index: 1; }}
-
-/* â”€â”€ HEADER â”€â”€ */
-.dash-header {{
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0.25rem 0 1.75rem;
-    border-bottom: 1px solid rgba(255,255,255,0.06);
-    margin-bottom: 2rem;
-    animation: fadeDown 0.6s ease both;
-}}
-@keyframes fadeDown {{
-    from {{ opacity: 0; transform: translateY(-14px); }}
-    to   {{ opacity: 1; transform: translateY(0); }}
-}}
-.dash-header-left {{ display: flex; flex-direction: column; gap: 4px; }}
-.dash-title {{
-    font-family: 'Outfit', sans-serif;
-    font-size: 1.75rem;
-    font-weight: 700;
-    letter-spacing: -0.02em;
-    color: #f1f5f9;
-    display: flex;
-    align-items: center;
-    gap: 0.55rem;
-}}
-.dash-title span.accent {{ color: {accent}; transition: color 0.6s ease; }}
-.dash-subtitle {{
-    font-size: 0.8rem;
-    color: #64748b;
-    font-weight: 400;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-}}
-
-/* â”€â”€ STATUS PILL â”€â”€ */
-.status-pill {{
-    display: inline-flex;
-    align-items: center;
-    gap: 7px;
-    padding: 6px 14px;
-    border-radius: 100px;
-    background: {status_bg};
-    border: 1px solid {status_dot}44;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.72rem;
-    font-weight: 700;
-    letter-spacing: 0.12em;
-    color: {status_dot};
-    animation: fadeDown 0.6s 0.2s ease both;
-}}
-.status-dot {{
-    width: 7px; height: 7px;
-    border-radius: 50%;
-    background: {status_dot};
-    box-shadow: 0 0 6px {status_dot};
-    animation: pulse 2s ease-in-out infinite;
-}}
-@keyframes pulse {{
-    0%, 100% {{ opacity: 1; transform: scale(1);    box-shadow: 0 0 6px {status_dot}; }}
-    50%       {{ opacity: 0.6; transform: scale(0.8); box-shadow: 0 0 12px {status_dot}; }}
-}}
-.last-update {{
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.68rem;
-    color: #475569;
-    margin-top: 5px;
-    text-align: right;
-}}
-
-/* â”€â”€ METRIC CARDS â”€â”€ */
-.metric-card {{
-    background: linear-gradient(145deg, rgba(255,255,255,0.045), rgba(255,255,255,0.02));
-    border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 20px;
-    padding: 1.5rem 1.6rem 1.35rem;
-    position: relative;
-    overflow: hidden;
-    transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
-    animation: fadeUp 0.55s ease both;
+/* Card Details */
+.glass-card {{
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.06);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
+    border-radius: 20px;
+    padding: 1.5rem;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+    transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+    animation: fadeInUp 0.6s ease-out forwards;
+    opacity: 0;
 }}
-.metric-card:hover {{
-    transform: translateY(-3px);
-    box-shadow: 0 20px 40px rgba(0,0,0,0.4);
-    border-color: rgba(255,255,255,0.14);
+.glass-card:hover {{
+    transform: translateY(-4px);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+    border-color: rgba(255, 255, 255, 0.1);
 }}
-.metric-card::before {{
-    content: '';
-    position: absolute;
-    top: 0; left: 0; right: 0;
-    height: 2px;
-    background: var(--card-accent, {accent});
-    opacity: 0.8;
-    border-radius: 20px 20px 0 0;
+
+/* Header */
+.dashboard-header {{
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.5rem 2rem;
+    background: rgba(10, 15, 28, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 20px;
+    margin-bottom: 2rem;
+    backdrop-filter: blur(20px);
+    animation: fadeInUp 0.4s ease-out forwards;
 }}
-.metric-card::after {{
-    content: '';
-    position: absolute;
-    top: -40px; right: -40px;
-    width: 100px; height: 100px;
-    border-radius: 50%;
-    background: var(--card-accent, {accent});
-    opacity: 0.04;
-    filter: blur(20px);
+.header-title-wrapper {{ display: flex; flex-direction: column; gap: 4px; }}
+.header-title {{
+    font-size: 2rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    background: linear-gradient(90deg, #f8fafc, #94a3b8);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    line-height: 1.2;
 }}
-@keyframes fadeUp {{
-    from {{ opacity: 0; transform: translateY(20px); }}
-    to   {{ opacity: 1; transform: translateY(0); }}
-}}
-.card-label {{
-    font-size: 0.7rem;
-    font-weight: 600;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
+.header-subtitle {{
+    font-size: 0.85rem;
     color: #64748b;
-    margin-bottom: 0.6rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+}}
+
+/* Status */
+.header-status-wrapper {{
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 8px;
+}}
+.status-indicator {{
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0.5rem 1.2rem;
+    border-radius: 99px;
+    background: {status_bg};
+    border: 1px solid {status_dot}33;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: {status_dot};
+    letter-spacing: 0.05em;
+}}
+.status-dot-inner {{
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: {status_dot};
+    animation: pulseGlow 2s infinite;
+}}
+.sync-time {{
+    font-size: 0.75rem;
+    color: #64748b;
+    font-family: 'Space Grotesk', sans-serif;
+}}
+
+/* Metrics */
+.metric-header {{
     display: flex;
     align-items: center;
+    gap: 8px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 1.2rem;
+}}
+.metric-value {{
+    font-size: 3.2rem;
+    font-weight: 700;
+    color: #f8fafc;
+    line-height: 1;
+    margin-bottom: 0.8rem;
+    display: flex;
+    align-items: baseline;
     gap: 6px;
 }}
-.card-label .icon {{ font-size: 0.85rem; }}
-.card-value {{
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 2.4rem;
-    font-weight: 700;
-    line-height: 1;
-    color: #f1f5f9;
-    letter-spacing: -0.03em;
-}}
-.card-value .unit {{
-    font-size: 1rem;
-    font-weight: 400;
+.metric-unit {{
+    font-size: 1.2rem;
+    font-weight: 500;
     color: #64748b;
-    margin-left: 3px;
 }}
-.card-delta {{
-    margin-top: 0.55rem;
-    font-size: 0.72rem;
+.metric-footer {{
+    font-size: 0.8rem;
     color: #475569;
-    font-family: 'JetBrains Mono', monospace;
 }}
 
-/* â”€â”€ ALERT BANNER â”€â”€ */
-.alert-banner {{
+/* Alert Banner */
+.alert-container {{
     display: flex;
     align-items: center;
-    gap: 1rem;
-    padding: 1rem 1.5rem;
-    border-radius: 14px;
-    border: 1px solid {banner_border}55;
+    gap: 1.2rem;
+    padding: 1.2rem 1.5rem;
+    border-radius: 16px;
     background: {banner_bg};
-    margin: 1.5rem 0;
-    box-shadow: 0 0 30px {glow};
-    animation: fadeUp 0.4s ease both;
-    position: relative;
-    overflow: hidden;
+    border: 1px solid {banner_border}40;
+    margin-bottom: 2.5rem;
+    box-shadow: 0 4px 20px {glow};
+    animation: fadeInUp 0.5s ease-out forwards;
 }}
-.alert-banner::before {{
-    content: '';
-    position: absolute;
-    left: 0; top: 0; bottom: 0;
-    width: 3px;
-    background: {banner_border};
-    border-radius: 3px 0 0 3px;
+.alert-icon {{
+    font-size: 1.4rem;
 }}
-.alert-badge {{
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.65rem;
-    font-weight: 700;
-    letter-spacing: 0.15em;
-    padding: 3px 9px;
-    border-radius: 6px;
-    background: {banner_border}22;
+.alert-text {{
+    font-size: 0.95rem;
+    font-weight: 500;
     color: {banner_border};
-    border: 1px solid {banner_border}44;
-    white-space: nowrap;
-}}
-.alert-message {{
-    font-size: 0.88rem;
-    color: #cbd5e1;
-    font-weight: 400;
 }}
 
-/* â”€â”€ THRESHOLD SECTION â”€â”€ */
-.threshold-section {{
-    background: linear-gradient(145deg, rgba(255,255,255,0.04), rgba(255,255,255,0.015));
-    border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 20px;
-    padding: 1.75rem 2rem;
-    margin: 1.5rem 0;
-    animation: fadeUp 0.5s 0.1s ease both;
-    backdrop-filter: blur(12px);
-}}
-.threshold-header {{
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 1.25rem;
-}}
-.threshold-title {{
-    font-size: 0.72rem;
-    font-weight: 600;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: #64748b;
-    display: flex;
-    align-items: center;
-    gap: 7px;
-}}
-.threshold-current {{
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 1.5rem;
-    font-weight: 700;
-    color: {accent};
-    transition: color 0.5s ease;
-}}
-
-/* â”€â”€ CHART SECTION â”€â”€ */
-.chart-section {{
-    background: linear-gradient(145deg, rgba(255,255,255,0.035), rgba(255,255,255,0.015));
-    border: 1px solid rgba(255,255,255,0.07);
-    border-radius: 20px;
-    padding: 1.5rem 1.75rem 1.25rem;
-    animation: fadeUp 0.6s 0.2s ease both;
-    backdrop-filter: blur(12px);
-}}
-.chart-title {{
-    font-size: 0.72rem;
-    font-weight: 600;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: #64748b;
-    margin-bottom: 1rem;
-    display: flex;
-    align-items: center;
-    gap: 7px;
-}}
-.chart-title .dot {{
-    width: 6px; height: 6px;
-    border-radius: 50%;
-    background: var(--dot-color, {accent});
-}}
-
-/* â”€â”€ SECTION LABEL â”€â”€ */
-.section-label {{
-    font-size: 0.7rem;
-    font-weight: 600;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: #334155;
-    margin: 2rem 0 1rem;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}}
-.section-label::after {{
-    content: '';
-    flex: 1;
-    height: 1px;
-    background: rgba(255,255,255,0.05);
-}}
-
-/* â”€â”€ SLIDER OVERRIDES â”€â”€ */
+/* Slider overrides */
 .stSlider > div > div > div > div {{
     background: {accent} !important;
-    transition: background 0.4s ease;
 }}
-.stSlider [data-testid="stThumbValue"] {{
-    font-family: 'JetBrains Mono', monospace !important;
-    font-size: 0.75rem !important;
-    background: #1e293b !important;
-    border: 1px solid rgba(255,255,255,0.12) !important;
-    color: #f1f5f9 !important;
-    border-radius: 6px !important;
+.stSlider [data-testid="stThumbValue"], .stSlider [data-testid="stTickBarMin"], .stSlider [data-testid="stTickBarMax"] {{
+    font-family: 'Space Grotesk', sans-serif !important;
+    color: #f8fafc !important;
+    font-size: 0.85rem !important;
 }}
 
-/* â”€â”€ BUTTON OVERRIDE â”€â”€ */
+/* Button overrides */
 .stButton > button {{
-    background: linear-gradient(135deg, {accent}22, {accent}11) !important;
-    border: 1px solid {accent}55 !important;
-    color: {accent} !important;
+    background: rgba(255, 255, 255, 0.05) !important;
+    border: 1px solid rgba(255, 255, 255, 0.15) !important;
+    color: #f8fafc !important;
     border-radius: 12px !important;
-    font-family: 'Outfit', sans-serif !important;
+    font-family: 'Plus Jakarta Sans', sans-serif !important;
     font-weight: 600 !important;
-    font-size: 0.85rem !important;
-    letter-spacing: 0.04em !important;
-    padding: 0.65rem 1.5rem !important;
-    transition: all 0.2s ease !important;
-    box-shadow: 0 0 20px {accent}15 !important;
+    transition: all 0.3s ease !important;
+    padding: 0.6rem 1.5rem !important;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1) !important;
 }}
 .stButton > button:hover {{
-    background: linear-gradient(135deg, {accent}35, {accent}20) !important;
+    background: {accent}22 !important;
     border-color: {accent}88 !important;
-    box-shadow: 0 0 28px {accent}30 !important;
-    transform: translateY(-1px) !important;
+    color: {accent} !important;
+    transform: translateY(-2px) !important;
+    box-shadow: 0 6px 15px {accent}30 !important;
 }}
 .stButton > button:active {{
     transform: translateY(0) !important;
 }}
 
-/* â”€â”€ SUCCESS/ERROR overrides â”€â”€ */
-.stSuccess, .stError {{ border-radius: 12px !important; }}
-
-/* â”€â”€ line chart colors â”€â”€ */
-.stLineChart canvas {{ border-radius: 8px; }}
-
-/* â”€â”€ divider â”€â”€ */
-hr {{ border-color: rgba(255,255,255,0.06) !important; }}
+/* Divider */
+.section-divider {{
+    margin: 3rem 0 1.5rem 0;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    animation: fadeInUp 0.7s ease-out forwards;
+    opacity: 0;
+}}
+.section-divider::after {{
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(90deg, rgba(255,255,255,0.1), transparent);
+}}
+.section-title {{
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #e2e8f0;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+}}
 </style>
 """, unsafe_allow_html=True)
 
-# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-# HEADER
-# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-last_str = last_update.strftime('%H:%M:%S UTC') if last_update else "â€”"
 
+# ---------------- LAYOUT ----------------
+
+last_str = last_update.strftime('%H:%M:%S UTC') if last_update else "—"
+
+# Header
 st.markdown(f"""
-<div class="dash-header">
-  <div class="dash-header-left">
-    <div class="dash-title">
-      ESP32 <span class="accent">Environment</span> Monitor
-    </div>
-    <div class="dash-subtitle">Temperature Â· Humidity Â· Threshold Control Â· ThingSpeak</div>
+<div class="dashboard-header">
+  <div class="header-title-wrapper">
+    <div class="header-title">ESP32 <span style="color: {accent};">Environment</span></div>
+    <div class="header-subtitle">Live Sensor Analytics Dashboard</div>
   </div>
-  <div style="display:flex; flex-direction:column; align-items:flex-end; gap:6px;">
-    <div class="status-pill">
-      <div class="status-dot"></div>
-      ESP32 {status_text}
+  <div class="header-status-wrapper">
+    <div class="status-indicator">
+      <div class="status-dot-inner"></div>
+      {status_text}
     </div>
-    <div class="last-update">Last sync: {last_str}</div>
+    <div class="sync-time">Last Sync: {last_str}</div>
   </div>
 </div>
 """, unsafe_allow_html=True)
 
-# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-# ALERT BANNER
-# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# Alert Banner
 st.markdown(f"""
-<div class="alert-banner">
-  <span style="font-size:1.3rem">{banner_icon}</span>
-  <span class="alert-badge">{banner_label}</span>
-  <span class="alert-message">{banner_text}</span>
+<div class="alert-container">
+  <div class="alert-icon">{banner_icon}</div>
+  <div class="alert-text">{banner_text}</div>
 </div>
 """, unsafe_allow_html=True)
 
-# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-# METRIC CARDS
-# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-st.markdown('<div class="section-label">Live Readings</div>', unsafe_allow_html=True)
+# Metrics Section
+st.markdown("""
+<div class="section-divider" style="animation-delay: 0.1s;">
+  <span class="section-title">Live Metrics</span>
+</div>
+""", unsafe_allow_html=True)
 
 col1, col2, col3 = st.columns(3)
 
 with col1:
     st.markdown(f"""
-    <div class="metric-card" style="--card-accent: {accent}; animation-delay: 0s;">
-      <div class="card-label"><span class="icon">ðŸŒ¡ï¸</span> Temperature</div>
-      <div class="card-value">{temperature:.1f}<span class="unit">Â°C</span></div>
-      <div class="card-delta">Threshold: {threshold_cloud:.1f} Â°C</div>
+    <div class="glass-card" style="animation-delay: 0.2s; border-top: 3px solid {accent};">
+      <div class="metric-header">🌡️ Temperature</div>
+      <div class="metric-value space-font">{temperature:.1f} <span class="metric-unit">°C</span></div>
+      <div class="metric-footer">Alarm Threshold: {threshold_cloud:.1f} °C</div>
     </div>
     """, unsafe_allow_html=True)
 
 with col2:
     st.markdown(f"""
-    <div class="metric-card" style="--card-accent: #38bdf8; animation-delay: 0.08s;">
-      <div class="card-label"><span class="icon">ðŸ’§</span> Humidity</div>
-      <div class="card-value">{humidity:.1f}<span class="unit">%</span></div>
-      <div class="card-delta">Relative humidity</div>
+    <div class="glass-card" style="animation-delay: 0.3s; border-top: 3px solid #38bdf8;">
+      <div class="metric-header">💧 Humidity</div>
+      <div class="metric-value space-font">{humidity:.1f} <span class="metric-unit">%</span></div>
+      <div class="metric-footer">Relative Humidity</div>
     </div>
     """, unsafe_allow_html=True)
 
 with col3:
     st.markdown(f"""
-    <div class="metric-card" style="--card-accent: #a78bfa; animation-delay: 0.16s;">
-      <div class="card-label"><span class="icon">ðŸŽšï¸</span> Active Threshold</div>
-      <div class="card-value">{threshold_cloud:.1f}<span class="unit">Â°C</span></div>
-      <div class="card-delta">Cloud-synced value</div>
+    <div class="glass-card" style="animation-delay: 0.4s; border-top: 3px solid #a78bfa;">
+      <div class="metric-header">⚙️ Active Threshold</div>
+      <div class="metric-value space-font">{threshold_cloud:.1f} <span class="metric-unit">°C</span></div>
+      <div class="metric-footer">ThingSpeak Cloud Value</div>
     </div>
     """, unsafe_allow_html=True)
 
-# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-# THRESHOLD CONTROL
-# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-st.markdown('<div class="section-label">Threshold Control</div>', unsafe_allow_html=True)
 
-st.markdown(f"""
-<div class="threshold-section">
-  <div class="threshold-header">
-    <div class="threshold-title">
-      <span>âš™</span> Temperature Alert Threshold
-    </div>
-    <div class="threshold-current">{st.session_state.threshold_ui} Â°C</div>
-  </div>
+# Configuration Section
+st.markdown("""
+<div class="section-divider" style="animation-delay: 0.5s;">
+  <span class="section-title">Device Configuration</span>
+</div>
 """, unsafe_allow_html=True)
 
-new_threshold = st.slider(
-    "Preview threshold (Â°C)",
-    0, 50,
-    st.session_state.threshold_ui,
-    label_visibility="collapsed"
-)
+with st.container():
+    st.markdown("""
+    <div class="glass-card" style="animation-delay: 0.6s; padding-bottom: 2rem;">
+      <div class="metric-header" style="margin-bottom: 2rem;">🎛️ Adjust Alert Threshold</div>
+    """, unsafe_allow_html=True)
+    
+    new_threshold = st.slider(
+        "Temperature Threshold (°C)",
+        0, 50,
+        st.session_state.threshold_ui,
+        label_visibility="collapsed"
+    )
+    
+    st.markdown("<br>", unsafe_allow_html=True)
+    btn_col, _ = st.columns([1, 4])
+    with btn_col:
+        if st.button("⚡ Sync to Cloud", use_container_width=True):
+            update_threshold(new_threshold)
+            st.session_state.threshold_ui = new_threshold
+            st.rerun()
+            
+    st.markdown("</div>", unsafe_allow_html=True)
 
-btn_col, _ = st.columns([1, 3])
-with btn_col:
-    if st.button("âš¡ Apply Threshold", use_container_width=True):
-        update_threshold(new_threshold)
-        st.session_state.threshold_ui = new_threshold
-        st.success(f"Threshold updated â†’ {new_threshold} Â°C")
 
-st.markdown("</div>", unsafe_allow_html=True)
-
-# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-# CHARTS
-# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-st.markdown('<div class="section-label">Sensor History</div>', unsafe_allow_html=True)
+# Historical Data Section
+st.markdown("""
+<div class="section-divider" style="animation-delay: 0.7s;">
+  <span class="section-title">Historical Trends</span>
+</div>
+""", unsafe_allow_html=True)
 
 col_t, col_h = st.columns(2)
 
 with col_t:
     st.markdown(f"""
-    <div class="chart-section">
-      <div class="chart-title">
-        <div class="dot" style="--dot-color:{accent}"></div>
-        Temperature over time (Â°C)
-      </div>
+    <div class="glass-card" style="animation-delay: 0.8s;">
+      <div class="metric-header" style="color: {accent};">📈 Temperature History</div>
     """, unsafe_allow_html=True)
     try:
         df_t = get_temperature_history()
         st.line_chart(
             df_t.set_index("created_at")["field1"],
             use_container_width=True,
-            height=220,
+            height=280,
             color=accent
         )
     except:
@@ -599,23 +461,21 @@ with col_t:
 
 with col_h:
     st.markdown("""
-    <div class="chart-section">
-      <div class="chart-title">
-        <div class="dot" style="--dot-color:#38bdf8"></div>
-        Humidity over time (%)
-      </div>
+    <div class="glass-card" style="animation-delay: 0.9s;">
+      <div class="metric-header" style="color: #38bdf8;">📈 Humidity History</div>
     """, unsafe_allow_html=True)
     try:
         df_h = get_humidity_history()
         st.line_chart(
             df_h.set_index("created_at")["field3"],
             use_container_width=True,
-            height=220,
+            height=280,
             color="#38bdf8"
         )
     except:
         st.warning("Humidity history unavailable")
     st.markdown("</div>", unsafe_allow_html=True)
+
 
 
 
