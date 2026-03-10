@@ -74,21 +74,23 @@ if "threshold_ui" not in st.session_state:
 def compute_gradient(val):
     ratio = min(max(val / 50, 0), 1)
     
-    # Text Accent Color (Soft Teal -> Soft Peach -> Muted Coral)
+    # Text Accent Color (Soft Cyan -> Soothing Lavender -> Warm Blush)
     if ratio < 0.5:
-        r_acc = int(94 + ratio * 2 * (255 - 94))
-        g_acc = int(234 + ratio * 2 * (218 - 234))
-        b_acc = int(212 + ratio * 2 * (185 - 212))
+        # Cyan (56, 189, 248) to Lavender (167, 139, 250)
+        r_acc = int(56 + ratio * 2 * (167 - 56))
+        g_acc = int(189 + ratio * 2 * (139 - 189))
+        b_acc = int(248 + ratio * 2 * (250 - 248))
     else:
+        # Lavender (167, 139, 250) to Blush (244, 114, 182)
         r2 = (ratio - 0.5) * 2
-        r_acc = int(255 + r2 * (248 - 255))
-        g_acc = int(218 - r2 * (113 - 218))
-        b_acc = int(185 - r2 * (113 - 185))
+        r_acc = int(167 + r2 * (244 - 167))
+        g_acc = int(139 - r2 * (139 - 114))
+        b_acc = int(250 - r2 * (250 - 182))
         
     accent_hex = f"#{r_acc:02x}{g_acc:02x}{b_acc:02x}"
     
-    # Premium Soothing Background Base (Deep Navy / Midnight Space)
-    bg_color = "#080b12"
+    # Premium Soothing Background Base (Deep Slate)
+    bg_color = "#0f172a"
         
     return accent_hex, bg_color
 
@@ -116,17 +118,18 @@ st.markdown(f"""
 * {{ box-sizing: border-box; }}
 
 /* 
-  PREMIUM SOOTHING BACKGROUND 
-  Soft, glowing orbs on a deep midnight canvas.
+  PREMIUM TWILIGHT MESH BACKGROUND 
+  Extremely soothing, modern mesh gradient with soft pastels over a deep slate base.
 */
 html, body, .stApp {{
     background-color: {bg_color} !important;
     background-image: 
-        radial-gradient(circle at 10% 40%, rgba(45, 212, 191, 0.05), transparent 45%),
-        radial-gradient(circle at 90% 20%, rgba(139, 92, 246, 0.06), transparent 50%),
-        radial-gradient(circle at 50% 90%, rgba(56, 189, 248, 0.04), transparent 60%);
-    background-attachment: fixed;
-    color: #e2e8f0;
+        radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.12) 0px, transparent 50%),
+        radial-gradient(at 100% 0%, rgba(236, 72, 153, 0.12) 0px, transparent 50%),
+        radial-gradient(at 100% 100%, rgba(14, 165, 233, 0.12) 0px, transparent 50%),
+        radial-gradient(at 0% 100%, rgba(16, 185, 129, 0.12) 0px, transparent 50%) !important;
+    background-attachment: fixed !important;
+    color: #f8fafc;
     font-family: 'Inter', sans-serif;
 }}
 
@@ -164,15 +167,15 @@ html, body, .stApp {{
     100% {{ box-shadow: 0 0 10px {status_dot}40; }}
 }}
 
-/* Premium Glass Cards */
+/* Premium Glass Cards - Frosted Slate */
 .ag-card {{
-    background: linear-gradient(135deg, rgba(30, 41, 59, 0.4), rgba(15, 23, 42, 0.6));
-    border: 1px solid rgba(255, 255, 255, 0.04);
-    backdrop-filter: blur(20px) saturate(120%);
-    -webkit-backdrop-filter: blur(20px) saturate(120%);
+    background: rgba(30, 41, 59, 0.45);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(24px) saturate(140%);
+    -webkit-backdrop-filter: blur(24px) saturate(140%);
     border-radius: 24px;
     padding: 2rem;
-    box-shadow: 0 10px 40px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.05);
+    box-shadow: 0 10px 40px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.06);
     transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.4s ease, border-color 0.4s ease;
     animation: fadeClipIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
     opacity: 0;
