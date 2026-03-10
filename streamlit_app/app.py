@@ -414,7 +414,8 @@ st.markdown(
     /* ── Background wipe: top → bottom curtain on every rerun ── */
     @keyframes bgWipe {{
         0%   {{ clip-path: inset(0 0 100% 0); opacity: 1; }}
-        55%  {{ clip-path: inset(0 0 0%   0); opacity: 1; }}
+        70%  {{ clip-path: inset(0 0 0%   0); opacity: 1; }}
+        92%  {{ clip-path: inset(0 0 0%   0); opacity: 0.6; }}
         100% {{ clip-path: inset(0 0 0%   0); opacity: 0; }}
     }}
     </style>
@@ -432,7 +433,7 @@ st.markdown(
         top: 0; left: 0;
         width: 100vw; height: 100vh;
         background: linear-gradient(145deg, {bg1} 0%, {bg2} 60%, #0a0a0a 100%);
-        animation: bgWipe 0.85s cubic-bezier(0.4,0,0.2,1) forwards;
+        animation: bgWipe 2.0s ease-in-out forwards;
         pointer-events: none;
         z-index: 10;
     "></div>
