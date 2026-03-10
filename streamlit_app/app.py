@@ -72,41 +72,52 @@ if "threshold_ui" not in st.session_state:
 
 # ---------------- DYNAMIC ACCENT & BACKGROUND COLOR ----------------
 def compute_gradient(val):
+    # This scale smoothly transitions from deep icy blue (0) -> purple -> rich magenta -> deep sunset amber (50)
     ratio = min(max(val / 50, 0), 1)
     
-    # Ultra-minimalist Muted Gold / Bone White Accents
+    # ACCENT (Button borders, charts, text highlights)
     if ratio < 0.5:
-        # Subtle Zinc (161, 161, 170) -> Bone/Oyster (212, 212, 216)
-        r_acc = int(161 + ratio * 2 * (212 - 161))
-        g_acc = int(161 + ratio * 2 * (212 - 161))
-        b_acc = int(170 + ratio * 2 * (216 - 170))
+        # Cyan/Teal (45, 212, 191) to Soft Lavender (167, 139, 250)
+        r_acc = int(45 + ratio * 2 * (167 - 45))
+        g_acc = int(212 + ratio * 2 * (139 - 212))
+        b_acc = int(191 + ratio * 2 * (250 - 191))
     else:
-        # Bone/Oyster (212, 212, 216) -> Muted Gold/Bronze (212, 175, 55)
+        # Lavender (167, 139, 250) to Soft Sunset Flame (251, 146, 60)
         r2 = (ratio - 0.5) * 2
-        r_acc = int(212 + r2 * (212 - 212))
-        g_acc = int(212 - r2 * (212 - 175))
-        b_acc = int(216 - r2 * (216 - 55))
+        r_acc = int(167 + r2 * (251 - 167))
+        g_acc = int(139 - r2 * (146 - 139))
+        b_acc = int(250 - r2 * (60 - 250))
         
     accent_hex = f"#{r_acc:02x}{g_acc:02x}{b_acc:02x}"
     
-    # Absolute Minimalist Graphite Base
-    bg_color = "#111111"
+    # BACKGROUND (ambient glow)
+    if ratio < 0.5:
+        # Deep Midnight Navy (15, 23, 42) -> Deep Grape Violet (46, 16, 101)
+        r_bg = int(15 + ratio * 2 * (46 - 15))
+        g_bg = int(23 + ratio * 2 * (16 - 23))
+        b_bg = int(42 + ratio * 2 * (101 - 42))
+    else:
+        # Deep Grape Violet (46, 16, 101) -> Deep Crimson Amber (69, 10, 10)
+        r2 = (ratio - 0.5) * 2
+        r_bg = int(46 + r2 * (69 - 46))
+        g_bg = int(16 - r2 * (16 - 10))
+        b_bg = int(101 - r2 * (101 - 10))
         
-    return accent_hex, bg_color
+    return accent_hex, f"#{r_bg:02x}{g_bg:02x}{b_bg:02x}"
 
 current_ui_temp = st.session_state.threshold_ui
 accent, bg_color = compute_gradient(current_ui_temp)
 
 alert_mode = temperature > threshold_cloud
 
-glow = "rgba(239, 68, 68, 0.4)" if alert_mode else "rgba(212, 175, 55, 0.2)"
-banner_bg = "rgba(239, 68, 68, 0.1)" if alert_mode else "rgba(212, 175, 55, 0.05)"
-banner_border = "#ef4444" if alert_mode else "#d4af37"
-banner_icon = "⚠️" if alert_mode else "✓"
-banner_text = "Critical Environment Alert: Threshold Exceeded." if alert_mode else "System Nominal. Environment within structural limits."
+glow = "rgba(251, 146, 60, 0.4)" if alert_mode else f"{accent}60"
+banner_bg = "rgba(239, 68, 68, 0.15)" if alert_mode else f"{accent}15"
+banner_border = "#ef4444" if alert_mode else accent
+banner_icon = "🔥" if alert_mode else "❄️"
+banner_text = "Thermal Limit Exceeded!" if alert_mode else "Environment gracefully maintained."
 
-status_bg = "rgba(255, 255, 255, 0.05)" if esp32_online else "rgba(239, 68, 68, 0.1)"
-status_dot = "#a1a1aa" if esp32_online else "#ef4444"
+status_bg = f"{accent}15" if esp32_online else "rgba(239, 68, 68, 0.1)"
+status_dot = accent if esp32_online else "#ef4444"
 status_text = "ONLINE" if esp32_online else "OFFLINE"
 
 # ---------------- INJECT CSS ----------------
@@ -118,15 +129,19 @@ st.markdown(f"""
 * {{ box-sizing: border-box; }}
 
 /* 
-  MINIMALIST ARCHITECTURAL BACKGROUND 
-  Extremely clean, geometric monochrome environment.
+  DYNAMIC TEMPERATURE BACKGROUND 
+  Extremely clean gradient reacting directly to slider value.
 */
 html, body, .stApp {{
     background-color: {bg_color} !important;
-    background-image: radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.05) 0%, transparent 60%);
+    background-image: 
+        radial-gradient(circle at 10% 20%, {bg_color} 0%, transparent 60%),
+        radial-gradient(circle at 80% 80%, {accent}15 0%, transparent 50%),
+        radial-gradient(ellipse at 50% 120%, {accent}08 0%, transparent 70%);
     background-attachment: fixed !important;
     color: #e4e4e7;
     font-family: 'Inter', sans-serif;
+    transition: background-color 1.2s ease, background-image 1.2s ease;
 }}
 
 /* Very fine grid pattern */
@@ -135,10 +150,10 @@ html, body, .stApp {{
     position: fixed;
     top: 0; left: 0; width: 100vw; height: 100vh;
     background-image: 
-        linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
-    background-size: 40px 40px;
-    opacity: 0.5;
+        linear-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
+    background-size: 30px 30px;
+    opacity: 0.6;
     z-index: 0;
     pointer-events: none;
 }}
@@ -165,23 +180,29 @@ html, body, .stApp {{
     50% {{ box-shadow: 0 0 25px {status_dot}90; }}
     100% {{ box-shadow: 0 0 10px {status_dot}40; }}
 }}
+@keyframes floatY {{
+    0% {{ transform: translateY(0px); }}
+    50% {{ transform: translateY(-3px); }}
+    100% {{ transform: translateY(0px); }}
+}}
 
-/* Monochrome Structure Cards */
+/* Glass Cards */
 .ag-card {{
-    background: rgba(24, 24, 27, 0.7);
+    background: rgba(15, 23, 42, 0.4);
     border: 1px solid rgba(255, 255, 255, 0.05);
-    border-radius: 12px;
+    border-radius: 20px;
     padding: 2.25rem;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
-    transition: transform 0.2s ease, border-color 0.2s ease;
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255,255,255,0.06);
+    transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.4s ease, border-color 0.4s ease;
     animation: fadeClipIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
     opacity: 0;
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
 }}
 .ag-card:hover {{
-    transform: translateY(-2px);
-    border-color: rgba(255, 255, 255, 0.15);
+    transform: translateY(-4px);
+    border-color: {accent}50;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.1), 0 0 30px {accent}15;
 }}
 
 /* Header */
@@ -302,11 +323,13 @@ html, body, .stApp {{
     backdrop-filter: blur(12px);
 }}
 .alert-icon {{
-    font-size: 1.2rem;
-    background: {banner_border}20;
-    width: 32px; height: 32px;
+    font-size: 1.4rem;
+    background: {banner_border}30;
+    width: 38px; height: 38px;
     display: flex; align-items: center; justify-content: center;
     border-radius: 50%;
+    animation: floatY 3s ease-in-out infinite;
+    text-shadow: 0 0 15px {banner_border};
 }}
 .alert-text {{
     font-size: 0.95rem;
